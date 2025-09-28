@@ -1,0 +1,76 @@
+﻿# ============================================================
+# TRACKING API - DEPENDENCIAS COMPATIBLES
+# ============================================================
+
+# === FRAMEWORK PRINCIPAL ===
+fastapi==0.110.0
+uvicorn[standard]==0.27.0
+python-multipart==0.0.9
+
+# === PYDANTIC V2 Y CONFIGURACIONES ===
+pydantic==2.6.1
+pydantic-settings==2.1.0
+
+# === BASE DE DATOS (SQLModel + PostgreSQL + SQLite) ===
+sqlmodel==0.0.14
+sqlalchemy==2.0.25
+asyncpg==0.29.0
+psycopg2-binary==2.9.9
+aiosqlite==0.19.0
+
+# === MIGRACIONES ===
+alembic==1.13.1
+
+# === REDIS Y CACHE ===
+redis==5.0.1
+hiredis==2.3.2
+
+# === HTTP CLIENT ===
+httpx==0.26.0
+
+# === VARIABLES DE ENTORNO ===
+python-dotenv==1.0.1
+
+# === FECHA Y TIEMPO ===
+python-dateutil==2.8.2
+
+# === JSON Y SERIALIZACIÓN ===
+orjson==3.9.10
+
+# === LOGGING Y ESTRUCTURADO ===
+structlog==23.2.0
+
+# === VALIDACIÓN Y UTILIDADES ===
+email-validator==2.1.0
+phonenumbers==8.13.27
+
+# === SERVIDOR DE PRODUCCIÓN ===
+gunicorn==21.2.0
+
+# === TESTING (VERSIONES COMPATIBLES) ===
+pytest==7.4.4
+pytest-asyncio==0.23.4
+pytest-mock==3.12.0
+pytest-cov==4.1.0
+
+# === DESARROLLO Y LINTING ===
+black==24.1.1
+isort==5.13.2
+mypy==1.8.0
+flake8==7.0.0
+
+# === MONITORING Y MÉTRICAS ===
+prometheus-client==0.19.0
+
+# === SEGURIDAD ===
+PyJWT==2.8.0
+passlib[bcrypt]==1.7.4
+python-jose[cryptography]==3.3.0
+bcrypt==4.0.1
+
+# === CLI Y UTILIDADES ===
+click==8.1.7
+rich==13.7.0
+
+# === COMPATIBILIDAD Y EXTRAS ===
+typing-extensions==4.9.0
