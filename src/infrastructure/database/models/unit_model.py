@@ -30,6 +30,12 @@ class UnitModel(SQLModel, table=True):
         max_length=100,
         description="Destino del envío"
     )
+
+    guide_id: Optional[str] = Field(
+         default_factory=lambda: str(uuid.uuid4()),
+        max_length=50,
+        description="ID de la guía asociada",
+    )
     
     status: str = Field(
         default="created",

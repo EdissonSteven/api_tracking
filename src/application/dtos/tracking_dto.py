@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import List, Optional, Dict, Any
 from datetime import datetime
-from src.interfaces.api.v1.schemas.checkpoint_schemas import CheckpointResponse
+
 
 @dataclass
 class UnitResponse:
@@ -14,10 +14,12 @@ class UnitResponse:
     status: str
     created_at: datetime
     updated_at: datetime
+    guide_id: Optional[str] = None
     weight_kg: Optional[float] = None
     dimensions: Optional[Dict[str, Any]] = None
     customer_info: Optional[Dict[str, Any]] = None
     meta_data: Optional[Dict[str, Any]] = None
+
 
 @dataclass
 class TrackingResponse:
@@ -25,11 +27,12 @@ class TrackingResponse:
     
     tracking_id: str
     unit: UnitResponse
-    checkpoints: List[CheckpointResponse]
+    checkpoints: List[Any]
     total_checkpoints: int
     last_update: datetime
     estimated_delivery: Optional[datetime] = None
     is_delayed: bool = False
+
 
 @dataclass
 class TrackingStatusResponse:
@@ -40,16 +43,18 @@ class TrackingStatusResponse:
     last_update: datetime
     last_location: Optional[str] = None
 
+
 @dataclass
 class TrackingTimelineEvent:
     """DTO para evento en la línea de tiempo de tracking."""
     
-    type: str  # "checkpoint", "unit_created", etc.
+    type: str
     timestamp: datetime
     status: str
     location: Optional[str] = None
     description: Optional[str] = None
     meta_data: Optional[Dict[str, Any]] = None
+
 
 @dataclass
 class TrackingTimelineResponse:
@@ -58,6 +63,7 @@ class TrackingTimelineResponse:
     tracking_id: str
     events: List[TrackingTimelineEvent]
     total_events: int
+
 
 @dataclass
 class TrackingSearchResult:
@@ -71,6 +77,7 @@ class TrackingSearchResult:
     created_at: datetime
     last_location: Optional[str] = None
 
+
 @dataclass
 class TrackingSearchResponse:
     """DTO para respuesta de búsqueda de trackings."""
@@ -80,6 +87,7 @@ class TrackingSearchResponse:
     page: int
     page_size: int
 
+
 @dataclass
 class TrackingStatistics:
     """DTO para estadísticas de tracking."""
@@ -88,6 +96,7 @@ class TrackingStatistics:
     total_checkpoints: int
     status_distribution: Dict[str, int]
     generated_at: datetime
+
 
 @dataclass
 class CreateTrackingRequest:
@@ -100,6 +109,7 @@ class CreateTrackingRequest:
     dimensions: Optional[Dict[str, Any]] = None
     customer_info: Optional[Dict[str, Any]] = None
     meta_data: Optional[Dict[str, Any]] = None
+
 
 @dataclass
 class UpdateTrackingRequest:
@@ -114,24 +124,13 @@ class UpdateTrackingRequest:
     meta_data: Optional[Dict[str, Any]] = None
 
 @dataclass
-class CreateCheckpointRequest:
-    """DTO para solicitud de creación de checkpoint."""
-    
-    tracking_id: str
-    status: str
-    location: Optional[str] = None
-    description: Optional[str] = None
-    coordinates: Optional[Dict[str, Any]] = None
-    meta_data: Optional[Dict[str, Any]] = None
-    timestamp: Optional[datetime] = None
-
-@dataclass
 class CheckpointValidationResult:
     """DTO para resultado de validación de checkpoint."""
     
     is_valid: bool
     errors: List[str]
     warnings: List[str] = None
+
 
 @dataclass
 class UnitValidationResult:
@@ -140,6 +139,7 @@ class UnitValidationResult:
     is_valid: bool
     errors: List[str]
     warnings: List[str] = None
+
 
 @dataclass
 class BusinessRuleResult:

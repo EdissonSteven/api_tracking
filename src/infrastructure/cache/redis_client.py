@@ -1,122 +1,140 @@
-# ...existing code...
-import redis.asyncio as redis
+import redis
 import json
 import logging
-from typing import Optional, Any, Union
-from ...config.settings import get_settings
+from typing import Optional, Any
+from .cache_config import CacheKey, CacheConfig
 
 logger = logging.getLogger(__name__)
 
+
 class RedisClient:
-    """Cliente Redis para operaciones de cache (async)."""
+    """Cliente Redis síncrono con configuración centralizada"""
     
-    def __init__(self, redis_url: Optional[str] = None):
-        settings = get_settings()
-        self.redis_url = (
-            redis_url
-            or getattr(settings, "REDIS_URL", None)
-            or getattr(settings, "redis_url", "redis://localhost:6379/0")
-        )
-        # único atributo consistente
-        self._redis_client: Optional[redis.Redis] = None
-
-    async def connect(self) -> redis.Redis:
-        """Inicializa conexión async con Redis (llamar en lifespan/startup)."""
-        if self._redis_client is None:
-            self._redis_client = redis.from_url(self.redis_url, decode_responses=True)
-            try:
-                await self._redis_client.ping()
-                logger.info("Conectado a Redis")
-            except Exception as e:
-                logger.warning(f"No se pudo hacer ping a Redis: {e}")
-        return self._redis_client
-
-    def client(self) -> redis.Redis:
-        """Devuelve el cliente si ya está inicializado (sync getter)."""
-        if self._redis_client is None:
-            raise RuntimeError("Redis no inicializado. Llama a await connect() en startup.")
-        return self._redis_client
-
-    async def close(self) -> None:
-        """Cierra la conexión a Redis (llamar en shutdown)."""
-        if self._redis_client:
-            try:
-                await self._redis_client.close()
-                logger.info("Conexión Redis cerrada")
-            except Exception as e:
-                logger.warning(f"Error cerrando Redis: {e}")
-            finally:
-                self._redis_client = None
+    def __init__(self, redis_url: str, settings):
+        self.redis_url = redis_url
+        self.settings = settings
+        self._client = None
+        self._available = False
+        
+        if settings.REDIS_ENABLED:
+            self._connect()
+    
+    def _connect(self):
+        """Conectar a Redis de forma segura"""
+        try:
+            self._client = redis.from_url(
+                self.redis_url,
+                decode_responses=True,
+                socket_connect_timeout=2,
+                socket_timeout=2
+            )
+            self._client.ping()
+            self._available = True
+            logger.info("Redis conectado exitosamente")
+        except Exception as e:
+            self._available = False
+            logger.warning(f"Redis no disponible: {str(e)}")
     
     @property
-    def is_connected(self) -> bool:
-        """Verifica si Redis está conectado (non-blocking)."""
-        return self._redis_client is not None
+    def is_available(self) -> bool:
+        """Verifica si Redis está disponible"""
+        return self._available and self._client is not None
     
-    # Métodos de cache asíncronos (usar await en callers)
-    async def get(self, key: str) -> Optional[Any]:
-        if not self.is_connected:
+    def get(self, key: str) -> Optional[Any]:
+        """Obtener valor de caché"""
+        if not self.is_available:
             return None
+        
         try:
-            value = await self._redis_client.get(key)
-            if value is None:
-                return None
-            try:
+            value = self._client.get(key)
+            if value:
                 return json.loads(value)
-            except json.JSONDecodeError:
-                return value
-        except Exception as e:
-            logger.warning(f"Error obteniendo clave '{key}' de Redis: {e}")
             return None
-
-    async def set(self, key: str, value: Any, expire: Optional[int] = None) -> bool:
-        if not self.is_connected:
-            return False
-        try:
-            if not isinstance(value, str):
-                value = json.dumps(value, default=str)
-            if expire is None:
-                expire = getattr(get_settings(), 'cache_ttl', 300)
-            result = await self._redis_client.setex(key, expire, value)
-            return bool(result)
         except Exception as e:
-            logger.warning(f"Error guardando clave '{key}' en Redis: {e}")
-            return False
-
-    async def delete(self, key: str) -> bool:
-        if not self.is_connected:
-            return False
-        try:
-            result = await self._redis_client.delete(key)
-            return bool(result)
-        except Exception as e:
-            logger.warning(f"Error eliminando clave '{key}' de Redis: {e}")
-            return False
-
-    async def exists(self, key: str) -> bool:
-        if not self.is_connected:
-            return False
-        try:
-            return bool(await self._redis_client.exists(key))
-        except Exception as e:
-            logger.warning(f"Error verificando clave '{key}' en Redis: {e}")
-            return False
-
-    async def increment(self, key: str, amount: int = 1) -> Optional[int]:
-        if not self.is_connected:
+            logger.warning(f"Redis GET error: {str(e)}")
             return None
-        try:
-            return await self._redis_client.incrby(key, amount)
-        except Exception as e:
-            logger.warning(f"Error incrementando clave '{key}' en Redis: {e}")
-            return None
-
-    def get_tracking_cache_key(self, tracking_id: str) -> str:
-        return f"tracking:{tracking_id}"
     
-    def get_checkpoints_cache_key(self, tracking_id: str) -> str:
-        return f"checkpoints:{tracking_id}"
-# ...existing code...
-redis_client = RedisClient()
+    def set_with_type(
+        self, 
+        cache_type: CacheKey,
+        key: str, 
+        value: Any
+    ) -> bool:
+        """Guardar valor con TTL según tipo de caché"""
+        if not self.is_available:
+            return False
+        
+        try:
+            ttl = CacheConfig.get_ttl(cache_type, self.settings)
+            serialized = json.dumps(value, default=str)
+            self._client.setex(key, ttl, serialized)
+            logger.debug(f"Cache guardado: {key} (TTL: {ttl}s)")
+            return True
+        except Exception as e:
+            logger.warning(f"Redis SET error: {str(e)}")
+            return False
+    
+    def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
+        """Guardar valor con TTL personalizado o default"""
+        if not self.is_available:
+            return False
+        
+        try:
+            if ttl is None:
+                ttl = self.settings.CACHE_TTL_DEFAULT
+            
+            serialized = json.dumps(value, default=str)
+            self._client.setex(key, ttl, serialized)
+            return True
+        except Exception as e:
+            logger.warning(f"Redis SET error: {str(e)}")
+            return False
+    
+    def delete(self, key: str) -> bool:
+        """Eliminar clave de caché"""
+        if not self.is_available:
+            return False
+        
+        try:
+            self._client.delete(key)
+            return True
+        except Exception as e:
+            logger.warning(f"Redis DELETE error: {str(e)}")
+            return False
+    
+    def delete_pattern(self, pattern: str) -> int:
+        """Eliminar claves que coincidan con patrón"""
+        if not self.is_available:
+            return 0
+        
+        try:
+            keys = self._client.keys(pattern)
+            if keys:
+                return self._client.delete(*keys)
+            return 0
+        except Exception as e:
+            logger.warning(f"Redis DELETE_PATTERN error: {str(e)}")
+            return 0
+    
+    def invalidate_tracking(self, tracking_id: str):
+        """Invalidar caché de un tracking específico"""
+        self.delete(f"tracking:{tracking_id}")
+        self.delete(f"checkpoints:{tracking_id}")
+    
+    def invalidate_units_cache(self):
+        """Invalidar caché de listados de unidades"""
+        self.delete_pattern("units:status:*")
+
+
+# Singleton global
+_redis_client: Optional[RedisClient] = None
+
+
 def get_redis_client() -> RedisClient:
-    return redis_client
+    """Obtener instancia singleton de Redis"""
+    global _redis_client
+    if _redis_client is None:
+        from ...config.settings import get_settings
+        settings = get_settings()
+        _redis_client = RedisClient(settings.REDIS_URL, settings)
+    return _redis_client

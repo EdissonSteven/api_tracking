@@ -1,20 +1,37 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional, Dict, Any
 from datetime import datetime
 import uuid
 
+from ..value_objects.tracking_id import TrackingId
+from ..value_objects.unit_status import UnitStatus
+from ..domain_exceptions import BusinessRuleViolationError
+
+
 @dataclass
 class Unit:
-    """Entidad de dominio que representa una unidad de tracking."""
+    """
+    Entidad de dominio que representa una unidad de tracking.
     
-    tracking_id: str
-    origin: str
-    destination: str
-    status: str = "created"
-    weight_kg: Optional[float] = None
-    dimensions: Optional[Dict[str, Any]] = None
-    customer_info: Optional[Dict[str, Any]] = None
-    extra_data: Optional[Dict[str, Any]] = None
+    Esta es la entidad central del agregado de tracking.
+    """
+    
+    # Identificadores
+    tracking_id: TrackingId
+    guide_id: Optional[str] = None
+    
+    # Estado
+    current_status: UnitStatus = field(default=UnitStatus.CREATED)
+    
+    # Información del paquete
+    weight_kg: Optional[float] = None  # kg
+    dimensions: Optional[str] = None  # Formato: "LxWxH"
+    
+    # Ubicaciones
+    origin: Optional[str] = None
+    destination: Optional[str] = None
+    
+    # Metadata
     id: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
@@ -24,7 +41,7 @@ class Unit:
         if self.id is None:
             self.id = str(uuid.uuid4())
         
-        current_time = datetime.now()
+        current_time = datetime.utcnow()
         
         if self.created_at is None:
             self.created_at = current_time
@@ -32,73 +49,85 @@ class Unit:
         if self.updated_at is None:
             self.updated_at = current_time
     
-    def update_status(self, new_status: str):
+    @classmethod
+    def create(
+        cls,
+        tracking_id: TrackingId,
+        guide_id: Optional[str] = None,
+        weight_kg: Optional[float] = None,
+        dimensions: Optional[str] = None,
+        origin: Optional[str] = None,
+        destination: Optional[str] = None
+    ) -> "Unit":
         """
-        Actualiza el estado de la unidad.
+        Factory method para crear una nueva unidad.
+        
+        Args:
+            tracking_id: ID de seguimiento único
+            guide_id: ID de la guía asociada
+            weight_kg: Peso en kilogramos
+            dimensions: Dimensiones del paquete
+            origin: Origen
+            destination: Destino
+            
+        Returns:
+            Nueva instancia de Unit
+        """
+        unit = cls(
+            tracking_id=tracking_id,
+            guide_id=guide_id,
+            current_status=UnitStatus.CREATED,
+            weight_kg=weight_kg,
+            dimensions=dimensions,
+            origin=origin,
+            destination=destination
+        )
+        
+        if not unit.is_valid():
+            raise BusinessRuleViolationError("Invalid unit data")
+        
+        return unit
+    
+    def update_status(self, new_status: UnitStatus) -> None:
+        """
+        Actualiza el estado de la unidad con validación de transiciones.
         
         Args:
             new_status: Nuevo estado
+            
+        Raises:
+            BusinessRuleViolationError: Si la transición no es válida
         """
-        self.status = new_status
-        self.updated_at = datetime.now()
+        # Validar transición de estado
+        if not self.current_status.can_transition_to(new_status):
+            raise BusinessRuleViolationError(
+                message=f"Invalid status transition from {self.current_status.value} to {new_status.value}",
+                rule_name="status_transition",
+                context={
+                    "current_status": self.current_status.value,
+                    "new_status": new_status.value,
+                    "tracking_id": self.tracking_id.value
+                }
+            )
+        
+        self.current_status = new_status
+        self.updated_at = datetime.utcnow()
     
-    def update_location(self, new_origin: Optional[str] = None, new_destination: Optional[str] = None):
+    def update_weight(self, weight_kg: float) -> None:
         """
-        Actualiza origen o destino de la unidad.
+        Actualiza el peso de la unidad.
         
         Args:
-            new_origin: Nuevo origen
-            new_destination: Nuevo destino
+            weight_kg: Peso en kilogramos
         """
-        if new_origin is not None:
-            self.origin = new_origin
-        if new_destination is not None:
-            self.destination = new_destination
-        self.updated_at = datetime.now()
-    
-    def add_customer_info(self, key: str, value: Any):
-        """
-        Agrega información del cliente.
+        if weight_kg <= 0:
+            raise BusinessRuleViolationError("weight_kg must be positive")
         
-        Args:
-            key: Clave del dato
-            value: Valor del dato
-        """
-        if self.customer_info is None:
-            self.customer_info = {}
-        self.customer_info[key] = value
-        self.updated_at = datetime.now()
-    
-    def add_meta_data(self, key: str, value: Any):
-        """
-        Agrega metadatos a la unidad.
+        if weight_kg > 100:  # Límite de negocio
+            raise BusinessRuleViolationError("weight_kg exceeds maximum limit of 100kg")
         
-        Args:
-            key: Clave del metadato
-            value: Valor del metadato
-        """
-        if self.extra_data is None:
-            self.extra_data = {}
-        self.extra_data[key] = value
-        self.updated_at = datetime.now()
-    
-    def set_dimensions(self, length: float, width: float, height: float, unit: str = "cm"):
-        """
-        Establece las dimensiones del paquete.
-        
-        Args:
-            length: Largo
-            width: Ancho  
-            height: Alto
-            unit: Unidad de medida
-        """
-        self.dimensions = {
-            "length": length,
-            "width": width,
-            "height": height,
-            "unit": unit
-        }
-        self.updated_at = datetime.now()
+        self.weight_kg = weight_kg
+        self.updated_at = datetime.utcnow()
     
     def is_valid(self) -> bool:
         """
@@ -108,59 +137,62 @@ class Unit:
             True si la unidad es válida
         """
         return (
-            bool(self.tracking_id) and 
-            bool(self.origin) and 
-            bool(self.destination) and
-            bool(self.status)
+            self.tracking_id is not None and
+            self.current_status is not None
         )
     
-    def to_dict(self) -> Dict[str, Any]:
-        """
-        Convierte la entidad a diccionario.
-        
-        Returns:
-            Diccionario con los datos de la unidad
-        """
-        return {
-            "id": self.id,
-            "tracking_id": self.tracking_id,
-            "origin": self.origin,
-            "destination": self.destination,
-            "status": self.status,
-            "weight_kg": self.weight_kg,
-            "dimensions": self.dimensions,
-            "customer_info": self.customer_info,
-            "meta_data": self.extra_data,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-            "updated_at": self.updated_at.isoformat() if self.updated_at else None
-        }
+    def is_in_transit(self) -> bool:
+        """Check if unit is currently in transit"""
+        return self.current_status in [
+            UnitStatus.PICKED_UP,
+            UnitStatus.IN_TRANSIT,
+            UnitStatus.OUT_FOR_DELIVERY
+        ]
     
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Unit":
-        """
-        Crea una unidad desde un diccionario.
-        
-        Args:
-            data: Diccionario con los datos
-            
-        Returns:
-            Instancia de Unit
-        """
-        # Convertir strings de fecha a datetime si es necesario
-        for date_field in ["created_at", "updated_at"]:
-            if isinstance(data.get(date_field), str):
-                data[date_field] = datetime.fromisoformat(data[date_field])
-        
-        # Mapear meta_data a extra_data
-        if "meta_data" in data:
-            data["extra_data"] = data.pop("meta_data")
-        
-        return cls(**data)
+    def is_delivered(self) -> bool:
+        """Check if unit has been delivered"""
+        return self.current_status == UnitStatus.DELIVERED
+    
+    def can_be_modified(self) -> bool:
+        """Check if unit can still be modified"""
+        return self.current_status in [UnitStatus.CREATED, UnitStatus.PICKED_UP]
     
     def __str__(self) -> str:
         """Representación string de la unidad."""
-        return f"Unit(id={self.id}, tracking_id={self.tracking_id}, status={self.status})"
+        return f"Unit(tracking_id={self.tracking_id.value}, status={self.current_status.value})"
     
     def __repr__(self) -> str:
         """Representación para debugging."""
         return self.__str__()
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "tracking_id": self.tracking_id.value if self.tracking_id else None,
+            "guide_id": self.guide_id,
+            "current_status": self.current_status.value if self.current_status else None,
+            "weight_kg": self.weight_kg,
+            "dimensions": self.dimensions,
+            "origin": self.origin,
+            "destination": self.destination,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "Unit":
+        from ..value_objects.tracking_id import TrackingId
+        from ..value_objects.unit_status import UnitStatus
+        
+        return cls(
+            id=data.get("id"),
+            tracking_id=TrackingId(data["tracking_id"]) if data.get("tracking_id") else None,
+            guide_id=data.get("guide_id"),
+            current_status=UnitStatus(data["current_status"]) if data.get("current_status") else UnitStatus.CREATED,
+            weight_kg=data.get("weight_kg"),
+            dimensions=data.get("dimensions"),
+            origin=data.get("origin"),
+            destination=data.get("destination"),
+            created_at=datetime.fromisoformat(data["created_at"]) if data.get("created_at") else None,
+            updated_at=datetime.fromisoformat(data["updated_at"]) if data.get("updated_at") else None,
+        )

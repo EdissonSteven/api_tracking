@@ -1,5 +1,6 @@
 ﻿from enum import Enum
 from dataclasses import dataclass
+from typing import List
 
 class UnitStatus(Enum):
     CREATED = "created"
@@ -38,3 +39,16 @@ class UnitStatus(Enum):
             UnitStatus.CANCELLED: "Cancelado"
         }
         return names[self]
+    
+    def get_allowed_transitions(self) -> List[str]:
+        """Retorna lista de estados permitidos para transición"""
+        transitions = {
+            "created": ["picked_up"],
+            "picked_up": ["in_transit"],
+            "in_transit": ["at_facility", "out_for_delivery"],
+            "at_facility": ["in_transit", "out_for_delivery"],
+            "out_for_delivery": ["delivered", "exception"],
+            "delivered": [],
+            "exception": ["in_transit", "out_for_delivery"]
+        }
+        return transitions.get(self.value, [])

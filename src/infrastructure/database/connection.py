@@ -53,11 +53,11 @@ class DatabaseManager:
         """Configura engine sync o async según la URL y el driver."""
         connect_args = {}
 
-        if self.database_url and "sqlite" in self.database_url:
+        if self.database_url and "sqlite" in str(self.database_url):
             connect_args = {"check_same_thread": False}
             # sqlite suele usar StaticPool en tests/local
             self._sync_engine = create_engine(
-                self.database_url,
+                str(self.database_url),
                 echo=self.db_echo if self.db_echo is not None else False,
                 connect_args=connect_args,
                 poolclass=StaticPool
@@ -67,10 +67,10 @@ class DatabaseManager:
             return
 
         # Detectar driver async (p. ej. postgresql+asyncpg)
-        if self.database_url and ("+asyncpg" in self.database_url or "asyncpg" in self.database_url):
+        if self.database_url and ("+asyncpg" in str(self.database_url) or "asyncpg" in str(self.database_url)):
             # crear engine async
             self._async_engine = create_async_engine(
-                self.database_url,
+                str(self.database_url),
                 echo=self.db_echo if self.db_echo is not None else False,
                 connect_args=connect_args,
                 future=True,
@@ -80,7 +80,7 @@ class DatabaseManager:
         else:
             # engine síncrono
             self._sync_engine = create_engine(
-                self.database_url,
+                str(self.database_url),
                 echo=self.db_echo if self.db_echo is not None else False,
                 connect_args=connect_args,
                 future=True,

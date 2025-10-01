@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS checkpoints (
 -- Crear tabla units
 CREATE TABLE IF NOT EXISTS units (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    guide_id UUID DEFAULT uuid_generate_v4(),
     tracking_id VARCHAR(50) UNIQUE NOT NULL,
     origin VARCHAR(100) NOT NULL,
     destination VARCHAR(100) NOT NULL,
@@ -58,15 +59,22 @@ CREATE INDEX IF NOT EXISTS idx_checkpoints_tracking_id ON checkpoints (tracking_
 CREATE INDEX IF NOT EXISTS idx_checkpoints_status ON checkpoints (status);
 CREATE INDEX IF NOT EXISTS idx_checkpoints_timestamp ON checkpoints (timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_checkpoints_tracking_status_time ON checkpoints (tracking_id, status, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_checkpoints_created_at ON checkpoints (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_checkpoints_tracking_status ON checkpoints(tracking_id, status);
 
 CREATE INDEX IF NOT EXISTS idx_units_tracking_id ON units (tracking_id);
 CREATE INDEX IF NOT EXISTS idx_units_status ON units (status);
 CREATE INDEX IF NOT EXISTS idx_units_created_at ON units (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_units_origin_destination ON units(origin, destination);
 
 CREATE INDEX IF NOT EXISTS idx_users_username ON users (username);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users (email);
 CREATE INDEX IF NOT EXISTS idx_users_is_active ON users (is_active);
 CREATE INDEX IF NOT EXISTS idx_users_created_at ON users (created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_checkpoints_active 
+ON checkpoints(tracking_id, timestamp DESC)
+WHERE status NOT IN ('delivered', 'cancelled');
 
 -- Insertar datos de prueba
 INSERT INTO units (tracking_id, origin, destination, status, weight_kg, customer_info) 

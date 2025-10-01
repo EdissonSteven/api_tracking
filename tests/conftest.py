@@ -86,7 +86,7 @@ def sample_unit_data():
     return {
         "tracking_id": "TEST_TRACKING_001",
         "guide_id": "GUIDE_001",
-        "weight": 2.5,
+        "weight_kg": 2.5,
         "dimensions": "20x15x10",
         "origin": "Warehouse A",
         "destination": "Customer B"

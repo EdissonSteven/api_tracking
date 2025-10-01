@@ -1,5 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
+
+from ..value_objects.tracking_id import TrackingId
+from ..value_objects.unit_status import UnitStatus
 from ..entities.checkpoint import Checkpoint
 
 class CheckpointRepository(ABC):
@@ -125,4 +128,13 @@ class CheckpointRepository(ABC):
         Returns:
             True si existe
         """
+        pass
+
+    @abstractmethod
+    async def exists_by_tracking_id_and_status(
+        self, 
+        tracking_id: TrackingId, 
+        status: UnitStatus
+    ) -> bool:
+        """Check if a checkpoint already exists with specific tracking_id and status"""
         pass

@@ -20,10 +20,10 @@ class AuthService:
     def __init__(self):
         self.settings = get_settings()
         self.pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-        self.secret_key = self.settings.secret_key
-        self.algorithm = getattr(self.settings, 'jwt_algorithm', 'HS256')
+        self.secret_key = self.settings.SECRET_KEY
+        self.algorithm = getattr(self.settings, 'JWT_ALGORITHM', 'HS256')
         self.access_token_expire_minutes = getattr(
-            self.settings, 'access_token_expire_minutes', 30
+            self.settings, 'ACCESS_TOKEN_EXPIRE_MINUTES', 30
         )
     
     def hash_password(self, password: str) -> str:

@@ -22,7 +22,7 @@ class TestCreateCheckpointUseCase:
         return CreateCheckpointUseCase(checkpoint_repo, unit_repo, validation_service)
     
     @pytest.mark.asyncio
-    async def test_create_checkpoint_success(self, use_case, mock_repositories):
+    def test_create_checkpoint_success(self, use_case, mock_repositories):
         """Test successful checkpoint creation"""
         checkpoint_repo, unit_repo, validation_service = mock_repositories
         
@@ -40,7 +40,7 @@ class TestCreateCheckpointUseCase:
         )
         
         # Execute
-        result = await use_case.execute(request)
+        result = use_case.execute(request)
         
         # Verify
         assert result.tracking_id == "TEST_001"

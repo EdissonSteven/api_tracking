@@ -33,3 +33,16 @@ class UnitRepository(ABC):
     async def update_status(self, tracking_id: TrackingId, status: UnitStatus) -> None:
         """Update unit status"""
         pass
+
+    @abstractmethod
+    async def count_by_status(self, status: UnitStatus) -> int:
+        """
+        Count total units with specific status.
+        
+        Args:
+            status: Unit status to count
+            
+        Returns:
+            Total number of units with that status
+        """
+        pass

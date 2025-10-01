@@ -16,13 +16,16 @@ class CheckpointStatus(str, Enum):
     AT_FACILITY = "at_facility"
 
 class UnitStatusEnum(str, Enum):
-    """Estados posibles de una unidad."""
     CREATED = "created"
-    PROCESSING = "processing"
+    PICKED_UP = "picked_up"
     IN_TRANSIT = "in_transit"
+    OUT_FOR_DELIVERY = "out_for_delivery"
     DELIVERED = "delivered"
-    CANCELLED = "cancelled"
     EXCEPTION = "exception"
+    RETURNED = "returned"
+    CANCELLED = "cancelled"
+    AT_FACILITY = "at_facility"
+    
 
 class CoordinatesSchema(BaseModel):
     """Schema para coordenadas geográficas."""

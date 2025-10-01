@@ -12,8 +12,8 @@ from .config.settings import get_settings
 
 # Importaciones de infraestructura
 from .infrastructure.database.connection import db_manager
-from .infrastructure.cache.redis_client import redis_client
-import asyncio
+from .infrastructure.cache.redis_client import get_redis_client
+
 
 # Importaciones de controladores
 from .interfaces.api.v1.controllers import (
@@ -27,6 +27,7 @@ from .interfaces.api.v1.controllers.auth_controller import router as auth_router
 from .interfaces.api.middleware.error_handler import setup_error_handlers
 
 logger = logging.getLogger(__name__)
+redis_client = get_redis_client()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -41,7 +42,7 @@ async def lifespan(app: FastAPI):
         logger.info("Base de datos inicializada")
         
         # Verificar conexión Redis
-        if redis_client.is_connected:
+        if redis_client.is_available:
             logger.info("Redis conectado")
         else:
             logger.warning("Redis no disponible - funcionando sin cache")
@@ -118,7 +119,7 @@ def create_app() -> FastAPI:
     # Configurar CORS
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.cors_origins_list,
+        allow_origins=settings.CORS_ALLOWED_ORIGINS,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -179,7 +180,7 @@ async def health_check():
             db_status = "disconnected"
         
         # Verificar Redis
-        redis_status = "connected" if redis_client.is_connected else "disconnected"
+        redis_status = "connected" if redis_client.is_available else "disconnected"
         
         return {
             "status": "healthy",

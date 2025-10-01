@@ -10,7 +10,7 @@ class UnitResponse(BaseModel):
     created_at: datetime = Field(..., description="Unit creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")
     guide_id: Optional[str] = Field(None, description="Guide identifier")
-    weight: Optional[float] = Field(None, description="Package weight")
+    weight_kg: Optional[float] = Field(None, description="Package weight")
     dimensions: Optional[str] = Field(None, description="Package dimensions")
     origin: Optional[str] = Field(None, description="Origin location")
     destination: Optional[str] = Field(None, description="Destination location")

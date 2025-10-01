@@ -2,88 +2,223 @@ import logging
 from typing import Optional
 from datetime import datetime
 
-from application.dtos.checkpoint_dto import CreateCheckpointRequest, CheckpointResponse
-from domain.entities.checkpoint import Checkpoint
-from domain.value_objects.tracking_id import TrackingId
-from domain.value_objects.unit_status import UnitStatus
-from domain.repositories.checkpoint_repository import CheckpointRepository
-from domain.repositories.unit_repository import UnitRepository
-from domain.services.domain_services import CheckpointValidationService
-
+from ...application.mappers import CheckpointResponseMapper
+from ...application.dtos.checkpoint_dto import CreateCheckpointRequest, CheckpointResponse
+from ...domain.entities.checkpoint import Checkpoint
+from ...domain.value_objects.tracking_id import TrackingId
+from ...domain.value_objects.unit_status import UnitStatus
+from ...domain.repositories.checkpoint_repository import CheckpointRepository
+from ...domain.repositories.unit_repository import UnitRepository
+from ...domain.services.domain_services import CheckpointValidationService
+from ...domain.domain_events import (
+    DomainEventDispatcher,
+    CheckpointCreatedEvent,
+    CheckpointValidationFailedEvent
+)
+from ...domain.domain_exceptions import (
+    DomainValidationError,
+    BusinessRuleViolationError,
+    UnitNotFoundError,
+    IdempotencyViolationError,
+    ConcurrencyError
+)
+from ..result import (
+    Result,
+    Success,
+    Failure,
+    ResultBuilder,
+    AsyncResult
+)
 
 logger = logging.getLogger(__name__)
 
 
 class CreateCheckpointUseCase:
-    """
-    Caso de uso para crear checkpoints.
-    
-    Este caso de uso encapsula la lógica de negocio para la creación de checkpoints,
-    siguiendo los principios de Clean Architecture donde los casos de uso coordinan
-    las interacciones entre entidades, servicios de dominio y repositorios.
-    """
+    """Use case para crear checkpoints siguiendo Clean Architecture y DDD."""
     
     def __init__(
         self,
         checkpoint_repo: CheckpointRepository,
         unit_repo: UnitRepository,
-        validation_service: CheckpointValidationService
+        validation_service: CheckpointValidationService,
+        event_dispatcher: DomainEventDispatcher = None,
+        response_mapper: CheckpointResponseMapper = None
     ):
-        """
-        Inicializar el caso de uso con las dependencias necesarias.
-        
-        Args:
-            checkpoint_repo: Repositorio de checkpoints (interface)
-            unit_repo: Repositorio de unidades (interface)
-            validation_service: Servicio de validación de dominio
-        """
         self._checkpoint_repo = checkpoint_repo
         self._unit_repo = unit_repo
         self._validation_service = validation_service
+        self._event_dispatcher = event_dispatcher
+        self._response_mapper = response_mapper or CheckpointResponseMapper()
         
-        logger.debug("CreateCheckpointUseCase inicializado")
+        logger.debug("CreateCheckpointUseCase initialized")
     
-    async def execute(self, request: CreateCheckpointRequest) -> CheckpointResponse:
-        """
-        Ejecutar el caso de uso de creación de checkpoint.
+    def execute(self, request: CreateCheckpointRequest) -> CheckpointResponse:  
+        """Ejecutar el caso de uso de creación de checkpoint."""
         
-        Este método implementa el flujo completo de creación de un checkpoint,
-        incluyendo validaciones, verificación de idempotencia y persistencia.
-        
-        Args:
-            request: Datos de la solicitud de creación
-            
-        Returns:
-            CheckpointResponse: Respuesta con los datos del checkpoint creado
-            
-        Raises:
-            ValueError: Si hay errores de validación
-            Exception: Si hay errores internos
-        """
+        operation_start = datetime.utcnow()
         
         try:
-            logger.info(f"Iniciando creación de checkpoint para {request.tracking_id}")
+            logger.info(f"Starting checkpoint creation for {request.tracking_id}")
             
-            # 1. Validar y convertir inputs
-            tracking_id = self._create_tracking_id(request.tracking_id)
-            status = self._create_unit_status(request.status)
+            # Step 1: Input Validation and Transformation
+            validation_result = self._validate_and_transform_input(request)  
+            if validation_result.is_failure():
+                error = validation_result.error
+                self._dispatch_validation_failed_event(request, str(error))  
+                raise error
             
-            # 2. Verificar idempotencia
-            if await self._validation_service.ensure_idempotency(tracking_id, status):
-                logger.info(f"Checkpoint idempotente para {request.tracking_id} con status {request.status}")
-                existing_checkpoint = await self._checkpoint_repo.get_latest_by_tracking_id(tracking_id)
-                if existing_checkpoint:
-                    return self._map_to_response(existing_checkpoint)
-                else:
-                    # Si no encontramos el checkpoint pero se marcó como idempotente, algo está mal
-                    logger.warning(f"Idempotencia detectada pero no se encontró checkpoint existente")
+            tracking_id, status = validation_result.unwrap()
             
-            # 3. Validar reglas de negocio
-            await self._validation_service.validate_checkpoint_creation(
+            # Step 2: Business Rules Validation
+            business_rules_result = self._validate_business_rules(  
                 tracking_id, status, request.timestamp
             )
+            if business_rules_result.is_failure():
+                error = business_rules_result.error
+                self._dispatch_validation_failed_event(request, str(error))  
+                raise error
             
-            # 4. Crear entidad de dominio
+            # Step 3: Idempotency Check
+            idempotency_result = self._check_idempotency(tracking_id, status)  
+            if idempotency_result.is_success():
+                existing_checkpoint = idempotency_result.unwrap()
+                if existing_checkpoint:
+                    logger.info(f"Returning existing checkpoint (idempotent): {existing_checkpoint.id}")
+                    return CheckpointResponseMapper.from_domain_entity(existing_checkpoint)
+            
+            # Step 4: Create Domain Entity
+            entity_creation_result = self._create_checkpoint_entity(  
+                tracking_id, status, request
+            )
+            if entity_creation_result.is_failure():
+                raise entity_creation_result.error
+            
+            checkpoint = entity_creation_result.unwrap()
+            
+            # Step 5: Persist Checkpoint
+            persistence_result = self._persist_checkpoint(checkpoint)  
+            if persistence_result.is_failure():
+                raise persistence_result.error
+            
+            saved_checkpoint = persistence_result.unwrap()
+            
+            # Step 6: Update Unit Status (if needed)
+            unit_update_result = self._update_unit_status(tracking_id, status)  
+            if unit_update_result.is_failure():
+                logger.warning(f"Failed to update unit status: {unit_update_result.error}")
+            
+            # Step 7: Dispatch Success Events
+            self._dispatch_success_events(saved_checkpoint, request)  
+            
+            # Step 8: Build Response
+            response = CheckpointResponseMapper.from_domain_entity(saved_checkpoint)
+            
+            operation_duration = (datetime.utcnow() - operation_start).total_seconds() * 1000
+            logger.info(
+                f"Checkpoint created successfully: {saved_checkpoint.id} "
+                f"for {request.tracking_id} in {operation_duration:.2f}ms"
+            )
+            
+            return response
+            
+        except (DomainValidationError, BusinessRuleViolationError, UnitNotFoundError) as e:
+            logger.warning(f"Domain error creating checkpoint: {str(e)}")
+            raise e
+            
+        except Exception as e:
+            operation_duration = (datetime.utcnow() - operation_start).total_seconds() * 1000
+            logger.error(
+                f"Unexpected error creating checkpoint for {request.tracking_id} "
+                f"after {operation_duration:.2f}ms: {str(e)}",
+                exc_info=True
+            )
+            raise Exception(f"Internal error creating checkpoint: {str(e)}")
+    
+    def _validate_and_transform_input(  
+        self, 
+        request: CreateCheckpointRequest
+    ) -> Result[tuple[TrackingId, UnitStatus], DomainValidationError]:
+        """Validar y transformar entrada a value objects de dominio."""
+        try:
+            tracking_id = TrackingId(request.tracking_id)
+            status = UnitStatus(request.status)
+            
+            logger.debug(f"Input validation successful for {request.tracking_id}")
+            return Success((tracking_id, status))
+            
+        except Exception as e:
+            error = DomainValidationError(
+                message=f"Invalid input data: {str(e)}",
+                details={
+                    "tracking_id": request.tracking_id,
+                    "status": request.status,
+                    "original_error": str(e)
+                }
+            )
+            return Failure(error)
+    
+    def _validate_business_rules(  
+        self, 
+        tracking_id: TrackingId, 
+        status: UnitStatus, 
+        timestamp: Optional[datetime]
+    ) -> Result[bool, BusinessRuleViolationError]:
+        """Validar reglas de negocio usando el servicio de dominio."""
+        try:
+            self._validation_service.validate_checkpoint_creation(  
+                tracking_id, status, timestamp
+            )
+            
+            logger.debug(f"Business rules validation successful for {tracking_id.value}")
+            return Success(True)
+            
+        except Exception as e:
+            if isinstance(e, (DomainValidationError, BusinessRuleViolationError)):
+                return Failure(e)
+            
+            error = BusinessRuleViolationError(
+                message=f"Business rule validation failed: {str(e)}",
+                rule_name="general_validation",
+                context={
+                    "tracking_id": str(tracking_id.value),
+                    "status": str(status.value),
+                    "original_error": str(e)
+                }
+            )
+            return Failure(error)
+    
+    def _check_idempotency(  
+        self, 
+        tracking_id: TrackingId, 
+        status: UnitStatus
+    ) -> Result[Optional[Checkpoint], Exception]:
+        """Verificar idempotencia y retornar checkpoint existente si aplica."""
+        try:
+            is_idempotent = self._validation_service.ensure_idempotency(  
+                tracking_id, status
+            )
+            
+            if is_idempotent:
+                existing_checkpoint = self._checkpoint_repo.get_latest_by_tracking_id(  
+                    tracking_id
+                )
+                logger.info(f"Idempotent checkpoint found for {tracking_id.value}")
+                return Success(existing_checkpoint)
+            
+            return Success(None)
+            
+        except Exception as e:
+            logger.warning(f"Error checking idempotency: {str(e)}")
+            return Success(None)
+    
+    def _create_checkpoint_entity(  
+        self, 
+        tracking_id: TrackingId, 
+        status: UnitStatus, 
+        request: CreateCheckpointRequest
+    ) -> Result[Checkpoint, DomainValidationError]:
+        """Crear entidad de dominio Checkpoint."""
+        try:
             checkpoint = Checkpoint.create(
                 tracking_id=tracking_id,
                 status=status,
@@ -94,169 +229,95 @@ class CreateCheckpointUseCase:
                 meta_data=request.meta_data
             )
             
-            # 5. Persistir checkpoint
-            saved_checkpoint = await self._checkpoint_repo.save(checkpoint)
+            if not checkpoint.is_valid():
+                raise DomainValidationError(
+                    message="Created checkpoint entity is invalid",
+                    details={"checkpoint_id": checkpoint.id}
+                )
             
-            # 6. Actualizar estado de la unidad
-            await self._update_unit_status(tracking_id, status)
+            logger.debug(f"Checkpoint entity created: {checkpoint.id}")
+            return Success(checkpoint)
             
-            logger.info(f"Checkpoint creado exitosamente: {saved_checkpoint.id}")
-            
-            return self._map_to_response(saved_checkpoint)
-            
-        except ValueError as e:
-            logger.error(f"Error de validación creando checkpoint: {str(e)}")
-            raise e
         except Exception as e:
-            logger.error(f"Error inesperado creando checkpoint: {str(e)}")
-            raise Exception("Internal error creating checkpoint")
+            error = DomainValidationError(
+                message=f"Failed to create checkpoint entity: {str(e)}",
+                details={"original_error": str(e)}
+            )
+            return Failure(error)
     
-    def _create_tracking_id(self, tracking_id_str: str) -> TrackingId:
-        """
-        Crear value object TrackingId de forma segura.
-        
-        Args:
-            tracking_id_str: String del tracking ID
-            
-        Returns:
-            TrackingId: Value object creado
-        """
+    def _persist_checkpoint(  
+        self, 
+        checkpoint: Checkpoint
+    ) -> Result[Checkpoint, Exception]:
+        """Persistir checkpoint en el repositorio."""
         try:
-            return TrackingId(tracking_id_str)
+            saved_checkpoint = self._checkpoint_repo.save(checkpoint)  
+            
+            logger.debug(f"Checkpoint persisted: {saved_checkpoint.id}")
+            return Success(saved_checkpoint)
+            
         except Exception as e:
-            logger.error(f"Error creando TrackingId: {str(e)}")
-            # Si no podemos crear el value object, usar el string directamente
-            # Esto es para mantener compatibilidad
-            class MockTrackingId:
-                def __init__(self, value):
-                    self.value = value
-                def __str__(self):
-                    return self.value
-            return MockTrackingId(tracking_id_str)
+            logger.error(f"Error persisting checkpoint: {str(e)}")
+            return Failure(e)
     
-    def _create_unit_status(self, status_str: str) -> UnitStatus:
-        """
-        Crear value object UnitStatus de forma segura.
-        
-        Args:
-            status_str: String del status
-            
-        Returns:
-            UnitStatus: Value object creado
-        """
+    def _update_unit_status(  
+        self, 
+        tracking_id: TrackingId, 
+        status: UnitStatus
+    ) -> Result[bool, Exception]:
+        """Actualizar estado de la unidad."""
         try:
-            return UnitStatus(status_str)
+            self._unit_repo.update_status(tracking_id, status)  
+            logger.debug(f"Unit status updated for {tracking_id.value}")
+            return Success(True)
+            
         except Exception as e:
-            logger.error(f"Error creando UnitStatus: {str(e)}")
-            # Si no podemos crear el value object, usar el string directamente
-            class MockUnitStatus:
-                def __init__(self, value):
-                    self.value = value
-                def __str__(self):
-                    return self.value
-            return MockUnitStatus(status_str)
+            logger.warning(f"Failed to update unit status: {str(e)}")
+            return Failure(e)
     
-    async def _update_unit_status(self, tracking_id, status):
-        """
-        Actualizar el estado de la unidad.
+    def _dispatch_success_events(  
+        self, 
+        checkpoint: Checkpoint, 
+        request: CreateCheckpointRequest
+    ):
+        """Disparar eventos de dominio para checkpoint creado exitosamente."""
+        if not self._event_dispatcher:
+            return
         
-        Args:
-            tracking_id: ID de seguimiento
-            status: Nuevo estado
-        """
         try:
-            await self._unit_repo.update_status(tracking_id, status)
-            logger.debug(f"Estado de unidad actualizado: {tracking_id}")
-        except Exception as e:
-            logger.warning(f"No se pudo actualizar estado de unidad: {str(e)}")
-            # No fallar la creación del checkpoint por esto
-    
-    def _map_to_response(self, checkpoint: Checkpoint) -> CheckpointResponse:
-        """
-        Mapear entidad de dominio a DTO de respuesta.
-        
-        Esta función maneja de forma segura la conversión entre la entidad de dominio
-        y el DTO, manejando tanto value objects como tipos primitivos.
-        
-        Args:
-            checkpoint: Entidad de dominio
-            
-        Returns:
-            CheckpointResponse: DTO de respuesta
-        """
-        try:
-            # Función helper para extraer valores de forma segura
-            def safe_extract_value(obj, default_value=None):
-                """Extrae el valor de un objeto, manejando diferentes tipos."""
-                if obj is None:
-                    return default_value
-                
-                # Si tiene atributo 'value', es un value object
-                if hasattr(obj, 'value'):
-                    return obj.value
-                
-                # Si es un string o tipo primitivo, usarlo directamente
-                if isinstance(obj, (str, int, float, bool)):
-                    return obj
-                
-                # Para otros casos, convertir a string
-                return str(obj)
-            
-            # Mapear campos básicos
-            checkpoint_id = safe_extract_value(checkpoint.id)
-            tracking_id = safe_extract_value(checkpoint.tracking_id)
-            status = safe_extract_value(checkpoint.status)
-            
-            # Validar que tenemos los campos requeridos
-            if not checkpoint_id:
-                raise ValueError("Checkpoint ID es requerido")
-            if not tracking_id:
-                raise ValueError("Tracking ID es requerido")
-            if not status:
-                raise ValueError("Status es requerido")
-            
-            logger.debug(f"Mapeando checkpoint: id={checkpoint_id}, tracking_id={tracking_id}, status={status}")
-            
-            return CheckpointResponse(
-                id=checkpoint_id,
-                tracking_id=tracking_id,
-                status=status,
-                timestamp=checkpoint.timestamp or datetime.utcnow(),
+            event = CheckpointCreatedEvent(
+                checkpoint_id=checkpoint.id,
+                tracking_id=checkpoint.tracking_id,
+                status=checkpoint.status,
+                created_by=request.operator or "system",
                 location=checkpoint.location,
-                description=checkpoint.description,
-                operator=getattr(checkpoint, 'operator', None),
-                meta_data=getattr(checkpoint, 'meta_data', None) or {},
-                created_at=checkpoint.created_at or datetime.utcnow(),
-                updated_at=checkpoint.updated_at or datetime.utcnow()
+                operator=checkpoint.operator
             )
             
+            self._event_dispatcher.dispatch(event)
+            logger.debug(f"Success events dispatched for checkpoint {checkpoint.id}")
+            
         except Exception as e:
-            logger.error(f"Error mapeando checkpoint a respuesta: {str(e)}")
-            logger.error(f"Checkpoint data: id={getattr(checkpoint, 'id', 'N/A')}, "
-                        f"type_id={type(getattr(checkpoint, 'id', None))}")
-            raise ValueError(f"Error mapeando respuesta: {str(e)}")
+            logger.error(f"Error dispatching success events: {str(e)}")
     
-    def _extract_safe_value(self, obj, field_name: str = "value"):
-        """
-        Extrae un valor de forma segura de un objeto.
+    def _dispatch_validation_failed_event(  
+        self, 
+        request: CreateCheckpointRequest, 
+        error_reason: str
+    ):
+        """Disparar evento de validación fallida."""
+        if not self._event_dispatcher:
+            return
         
-        Args:
-            obj: Objeto del cual extraer el valor
-            field_name: Nombre del campo a extraer
+        try:
+            event = CheckpointValidationFailedEvent(
+                tracking_id=request.tracking_id,
+                status=request.status,
+                error_reason=error_reason,
+                attempted_by=request.operator or "unknown"
+            )
             
-        Returns:
-            Valor extraído o el objeto original si no tiene el campo
-        """
-        if obj is None:
-            return None
+            self._event_dispatcher.dispatch(event)
             
-        # Si el objeto tiene el atributo especificado, usarlo
-        if hasattr(obj, field_name):
-            return getattr(obj, field_name)
-        
-        # Si es un tipo primitivo, devolverlo directamente
-        if isinstance(obj, (str, int, float, bool)):
-            return obj
-            
-        # Para otros casos, convertir a string
-        return str(obj)
+        except Exception as e:
+            logger.error(f"Error dispatching validation failed event: {str(e)}")

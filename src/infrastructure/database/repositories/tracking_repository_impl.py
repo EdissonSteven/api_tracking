@@ -7,6 +7,8 @@ from ....domain.entities.unit import Unit
 from ....domain.entities.checkpoint import Checkpoint
 from ....infrastructure.database.models.unit_model import UnitModel
 from ....infrastructure.database.models.checkpoint_model import CheckpointModel
+from ...cache.redis_client import get_redis_client
+from ...cache.cache_config import CacheKey
 
 logger = logging.getLogger(__name__)
 
@@ -16,18 +18,8 @@ class TrackingRepositoryImpl:
     def __init__(self, session: Session):
         self.session = session
     
-    async def get_tracking_info(self, tracking_id: str) -> Dict[str, Any]:
-        """
-        Obtiene información completa de tracking (unit + checkpoints).
-        
-        Args:
-            tracking_id: ID de seguimiento
-            
-        Returns:
-            Diccionario con información completa del tracking
-        """
+    def get_tracking_info(self, tracking_id: str) -> Dict[str, Any]:
         try:
-            # Obtener unidad
             unit_statement = select(UnitModel).where(UnitModel.tracking_id == tracking_id)
             unit_result = self.session.exec(unit_statement).first()
             
@@ -44,15 +36,15 @@ class TrackingRepositoryImpl:
             # Convertir a diccionario
             tracking_info = {
                 "tracking_id": tracking_id,
-                "unit": {
+                "unit_info": {
                     "id": unit_result.id,
-                    "origin": unit_result.origin,
-                    "destination": unit_result.destination,
+                    "origin": getattr(unit_result, 'origin', None),
+                    "destination": getattr(unit_result, 'destination', None),
                     "status": unit_result.status,
-                    "weight_kg": unit_result.weight_kg,
-                    "dimensions": unit_result.dimensions,
-                    "customer_info": unit_result.customer_info,
-                    "meta_data": unit_result.extra_data,
+                    "weight_kg": getattr(unit_result, 'weight_kg', None),
+                    "dimensions": getattr(unit_result, 'dimensions', None),
+                    "customer_info": getattr(unit_result, 'customer_info', None),
+                    "meta_data": getattr(unit_result, 'extra_data', None),
                     "created_at": unit_result.created_at,
                     "updated_at": unit_result.updated_at
                 },
@@ -62,25 +54,24 @@ class TrackingRepositoryImpl:
                         "status": cp.status,
                         "location": cp.location,
                         "description": cp.description,
-                        "coordinates": cp.coordinates,
-                        "meta_data": cp.meta_data,
+                        "coordinates": getattr(cp, 'coordinates', None),
+                        "meta_data": getattr(cp, 'meta_data', None),
                         "timestamp": cp.timestamp,
                         "created_at": cp.created_at,
-                        "updated_at": cp.updated_at
+                        "updated_at": getattr(cp, 'updated_at', None)
                     }
                     for cp in checkpoint_results
                 ],
                 "total_checkpoints": len(checkpoint_results),
                 "last_update": checkpoint_results[0].timestamp if checkpoint_results else unit_result.updated_at
             }
-            
             return tracking_info
             
         except Exception as e:
             logger.error(f"Error obteniendo información de tracking {tracking_id}: {e}")
             raise
     
-    async def get_tracking_status(self, tracking_id: str) -> Optional[str]:
+    def get_tracking_status(self, tracking_id: str) -> Optional[str]:
         """
         Obtiene el estado actual de un tracking.
         
@@ -90,6 +81,7 @@ class TrackingRepositoryImpl:
         Returns:
             Estado actual o None si no existe
         """
+        print(f"🎯 get_tracking_status: {tracking_id}")
         try:
             # Buscar el checkpoint más reciente
             checkpoint_statement = select(CheckpointModel).where(
@@ -114,7 +106,8 @@ class TrackingRepositoryImpl:
             logger.error(f"Error obteniendo estado de tracking {tracking_id}: {e}")
             raise
     
-    async def get_tracking_timeline(self, tracking_id: str) -> List[Dict[str, Any]]:
+    def get_tracking_timeline(self, tracking_id: str) -> List[Dict[str, Any]]:
+        print(f"🎯 get_tracking_timeline: {tracking_id}")
         """
         Obtiene la línea de tiempo completa de un tracking.
         
@@ -152,7 +145,7 @@ class TrackingRepositoryImpl:
             logger.error(f"Error obteniendo timeline de tracking {tracking_id}: {e}")
             raise
     
-    async def search_trackings(
+    def search_trackings(
         self, 
         status: Optional[str] = None,
         origin: Optional[str] = None,
@@ -214,18 +207,19 @@ class TrackingRepositoryImpl:
             logger.error(f"Error buscando trackings: {e}")
             raise
 
-    async def get_by_tracking_id(self, tracking_id: str) -> List[Checkpoint]:
-        """
-        Obtiene todos los checkpoints de un tracking ID.
-        
-        Args:
-            tracking_id: ID de seguimiento
-            
-        Returns:
-            Lista de checkpoints ordenados por timestamp DESC
-        """
+    def get_by_tracking_id(self, tracking_id: str) -> List[Checkpoint]:
+        redis = get_redis_client()
+        cache_key = f"tracking_by_id:{tracking_id}"
+        if redis.is_available:
+            cached = redis.get(cache_key)
+            if cached:
+                print(f"🎯 Cache HIT: {tracking_id}")
+                # Reconstruir objetos Checkpoint con from_dict
+                checkpoints = [Checkpoint.from_dict(item) for item in cached]
+                return checkpoints
+
         try:
-            # Extraer valor si es value object
+            print(f"🎯 get_by_tracking_id: {tracking_id}")
             tracking_id_str = getattr(tracking_id, 'value', str(tracking_id))
             
             logger.debug(f"Buscando checkpoints para tracking_id: {tracking_id_str}")
@@ -239,13 +233,17 @@ class TrackingRepositoryImpl:
             checkpoints = [self._model_to_entity(result) for result in results]
             
             logger.debug(f"Encontrados {len(checkpoints)} checkpoints para {tracking_id_str}")
+            # Guardar lista de dicts en cache
+            redis.set_with_type(CacheKey.TRACKING, cache_key, [c.to_dict() for c  in checkpoints])
+            print(f"💾 Cache MISS: {tracking_id} - guardado en caché")
             return checkpoints
             
         except Exception as e:
             logger.error(f"Error obteniendo checkpoints para tracking {tracking_id}: {str(e)}")
             raise
+
     
-    async def tracking_exists(self, tracking_id: str) -> bool:
+    def tracking_exists(self, tracking_id: str) -> bool:
         """
         Verifica si existe un tracking.
         
@@ -265,7 +263,7 @@ class TrackingRepositoryImpl:
             logger.error(f"Error verificando existencia de tracking {tracking_id}: {e}")
             raise
     
-    async def get_tracking_statistics(self) -> Dict[str, Any]:
+    def get_tracking_statistics(self) -> Dict[str, Any]:
         """
         Obtiene estadísticas generales de tracking.
         
@@ -295,3 +293,27 @@ class TrackingRepositoryImpl:
         except Exception as e:
             logger.error(f"Error obteniendo estadísticas: {e}")
             raise
+    
+    def _model_to_entity(self, model: CheckpointModel) -> Checkpoint:
+        """
+        Convierte un modelo de base de datos a entidad de dominio.
+        
+        Args:
+            model: Modelo de base de datos (CheckpointModel)
+            
+        Returns:
+            Entidad de dominio Checkpoint
+        """
+        return Checkpoint(
+            id=model.id,
+            tracking_id=model.tracking_id,
+            status=model.status,
+            location=model.location,
+            description=model.description,
+            coordinates=getattr(model, 'coordinates', None),
+            meta_data=getattr(model, 'meta_data', {}),
+            timestamp=model.timestamp,
+            created_at=model.created_at,
+            updated_at=getattr(model, 'updated_at', None),
+            operator=getattr(model, 'operator', None)
+        )
