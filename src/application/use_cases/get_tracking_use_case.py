@@ -119,6 +119,7 @@ class GetTrackingUseCase:
             status=get_value(getattr(unit, 'current_status', None), getattr(unit, 'status', 'unknown')),
             created_at=getattr(unit, 'created_at', datetime.utcnow()),
             updated_at=getattr(unit, 'updated_at', datetime.utcnow()),
+            guide_id=str(unit.guide_id) if unit.guide_id else None,
             weight_kg=getattr(unit, 'weight_kg', None),
             dimensions=getattr(unit, 'dimensions', None),
             customer_info=getattr(unit, 'customer_info', None),

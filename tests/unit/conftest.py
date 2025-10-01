@@ -8,7 +8,7 @@ import pytest
 from unittest.mock import Mock
 from typing import Dict, Any
 
-from tests.unit.test_helpers import UserFactory
+from tests.unit.test_helper import UserFactory
 
 
 # =====================
