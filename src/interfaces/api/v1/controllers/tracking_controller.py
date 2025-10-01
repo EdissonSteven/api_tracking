@@ -1,24 +1,16 @@
 import logging
 from typing import Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Path
-from fastapi.responses import JSONResponse
 
 from ..schemas.tracking_schemas import TrackingResponse, UnitResponse
 from ..schemas.checkpoint_schemas import CheckpointResponse, UnitStatusEnum
 from ..schemas.error_schemas import ErrorResponse, NotFoundErrorResponse
 from ..dependencies import (
     get_tracking_use_case,
-    get_rate_limiter,
     require_permissions
 )
-
 # Use Cases
 from .....application.use_cases.get_tracking_use_case import GetTrackingUseCase
-from .....application.dtos.checkpoint_dto import CheckpointResponse as CheckpointDTO
-from .....application.dtos.tracking_dto import UnitResponse as UnitDTO
-
-# Infrastructure
-from .....infrastructure.security.rate_limiter import RateLimitManager
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/tracking", tags=["tracking"])
@@ -79,6 +71,7 @@ async def get_tracking(
                     description=cp.description,
                     operator=cp.operator,
                     meta_data=cp.meta_data or {},
+                    coordinates=cp.coordinates or {},
                     created_at=cp.created_at,
                     updated_at=cp.updated_at
                 )

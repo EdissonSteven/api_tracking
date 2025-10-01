@@ -3,14 +3,14 @@ import uuid
 from fastapi import Depends, Request, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlmodel import Session
-from typing import Generator, AsyncGenerator, Dict, Any, List
+from typing import AsyncGenerator, Dict, Any, List
 
 # Core Infrastructure
 from ....infrastructure.database.connection import get_async_db_session
 from ....infrastructure.database.repositories.checkpoint_repository_impl import CheckpointRepositoryImpl
 from ....infrastructure.database.repositories.unit_repository_impl import UnitRepositoryImpl
 from ....infrastructure.database.repositories.tracking_repository_impl import TrackingRepositoryImpl
-from ....infrastructure.security.auth_service import AuthService, JWTManager
+from ....infrastructure.security.auth_service import AuthService
 from ....infrastructure.security.rate_limiter import RateLimitManager
 from ....infrastructure.cache.redis_client import RedisClient
 
@@ -29,7 +29,6 @@ from ....domain.domain_events import (
 )
 from ....application.validators import (
     ValidationService,
-    ValidatorChainBuilder,
     create_default_validator_chain,
     create_strict_validator_chain
 )

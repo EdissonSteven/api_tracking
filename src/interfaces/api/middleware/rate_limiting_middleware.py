@@ -1,29 +1,16 @@
-"""
-Rate Limiting Middleware siguiendo principios de Clean Architecture.
-
-Este middleware implementa:
-- Rate limiting global configurable
-- Múltiples estrategias de rate limiting
-- Integración con métricas y observabilidad
-- Manejo graceful de errores
-- Configuración por endpoint y usuario
-"""
-
 import time
 import hashlib
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, Callable, Union
+from typing import Dict, Any, Optional, Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
 from enum import Enum
 
-from fastapi import Request, Response, HTTPException, status
+from fastapi import Request, Response, status
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
 from ..infrastructure.observability.observability import MetricsService, StructuredLogger
-from ..domain.exceptions.exceptions import RateLimitExceededError
 
 
 class RateLimitStrategy(Enum):

@@ -5,7 +5,7 @@ from typing import Dict, Any
 import logging
 
 from ..schemas.auth_schemas import LoginRequest, TokenResponse, UserResponse
-from ..schemas.error_schemas import ErrorResponse, BusinessErrorResponse
+from ..schemas.error_schemas import ErrorResponse
 from src.infrastructure.database.connection import get_db_session
 from src.infrastructure.database.repositories.user_repository_impl import UserRepositoryImpl
 from src.infrastructure.security.auth_service import get_auth_service

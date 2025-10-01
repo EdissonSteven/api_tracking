@@ -79,9 +79,13 @@ class CreateCheckpointRequest(BaseModel):
         example="Juan Pérez"
     )
     
-    coordinates: Optional[CoordinatesSchema] = Field(
+    coordinates: Optional[Dict[str, Any]] = Field(
         None,
-        description="Coordenadas GPS del checkpoint"
+        description="Coordenadas GPS del checkpoint",
+        example={
+            "latitude": 4.7110,
+            "longitude": -74.0721
+        }
     )
     
     meta_data: Optional[Dict[str, Any]] = Field(
@@ -145,7 +149,7 @@ class UpdateCheckpointRequest(BaseModel):
         max_length=100
     )   
     
-    coordinates: Optional[CoordinatesSchema] = Field(
+    coordinates: Optional[Dict[str, Any]] = Field(
         None,
         description="Nuevas coordenadas GPS del checkpoint"
     )
@@ -194,7 +198,7 @@ class CheckpointResponse(BaseModel):
         example="Juan Pérez"
     )       
     
-    coordinates: Optional[CoordinatesSchema] = Field(
+    coordinates: Optional[Dict[str, Any]] = Field(
         None,
         description="Coordenadas GPS del checkpoint"
     )

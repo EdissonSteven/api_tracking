@@ -94,6 +94,7 @@ class GetTrackingUseCase:
             status=get_value(checkpoint.status, checkpoint.status),
             timestamp=checkpoint.timestamp,
             location=checkpoint.location,
+            coordinates=getattr(checkpoint, 'coordinates', {}),
             description=checkpoint.description,
             operator=getattr(checkpoint, 'operator', None),
             meta_data=getattr(checkpoint, 'meta_data', {}),

@@ -1,12 +1,5 @@
-"""
-Mappers para transformación entre DTOs y entidades de dominio.
-
-Este módulo separa las responsabilidades de transformación de datos,
-siguiendo el principio de Single Responsibility y facilitando el mantenimiento.
-"""
-
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 from datetime import datetime
 import logging
 
@@ -112,7 +105,7 @@ class StructuredLogger:
 
 class PerformanceMonitor:
     def __init__(self, metrics=None, tracing=None): pass
-    
+
 class CheckpointResponseMapper:
     """Mapper para transformar entidades/DTOs a responses de API."""
     

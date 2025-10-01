@@ -1,10 +1,8 @@
 from dataclasses import dataclass, field
-from datetime import datetime
 from typing import List, Optional
 
 from .checkpoint import Checkpoint
 from .unit import Unit
-from ..value_objects.tracking_id import TrackingId
 from ..value_objects.unit_status import UnitStatus
 
 

@@ -7,7 +7,7 @@ from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.encoders import jsonable_encoder
 
-from ..v1.schemas.error_schemas import ErrorResponse, ValidationErrorResponse, ErrorDetail
+from ..v1.schemas.error_schemas import ErrorResponse, ValidationErrorResponse
 from ....domain.domain_exceptions import (
     BusinessRuleViolationError,
     DomainValidationError,

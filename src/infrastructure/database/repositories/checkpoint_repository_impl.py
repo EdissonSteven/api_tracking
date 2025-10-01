@@ -8,6 +8,7 @@ from ....domain.value_objects.unit_status import UnitStatus
 from ....domain.entities.checkpoint import Checkpoint
 from ....domain.repositories.checkpoint_repository import CheckpointRepository
 from ...database.models.checkpoint_model import CheckpointModel
+from ...cache.redis_client import get_redis_client
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +56,13 @@ class CheckpointRepositoryImpl(CheckpointRepository):
             logger.debug(f"Checkpoint creado exitosamente: {db_checkpoint.id}")
             
             # Convertir modelo de DB de vuelta a entidad de dominio
+            redis = get_redis_client()
+            if redis.is_available:
+                cache_key = f"tracking_by_id:{db_checkpoint.tracking_id}"
+                if redis.delete(cache_key):
+                    print(f"Cache invalidada para tracking_by_id {db_checkpoint.tracking_id}")
+                logger.debug(f"Cache invalidada para tracking: {db_checkpoint.tracking_id}")
+            
             return self._model_to_entity(db_checkpoint)
             
         except Exception as e:
@@ -414,7 +422,7 @@ class CheckpointRepositoryImpl(CheckpointRepository):
             status=status_value,
             location=checkpoint.location,
             description=checkpoint.description,
-            coordinates=checkpoint.coordinates,
+            coordinates=getattr(checkpoint, 'coordinates', None) or {},
             meta_data=getattr(checkpoint, 'meta_data', None) or {},
             operator=getattr(checkpoint, 'operator', None),
             timestamp=checkpoint.timestamp or datetime.utcnow(),
@@ -438,7 +446,7 @@ class CheckpointRepositoryImpl(CheckpointRepository):
             status=db_model.status,
             location=db_model.location,
             description=db_model.description,
-            coordinates=db_model.coordinates,
+            coordinates=getattr(db_model, 'coordinates', None) or {},
             meta_data=getattr(db_model, 'meta_data', None) or {},
             timestamp=db_model.timestamp,
             created_at=db_model.created_at,
@@ -462,13 +470,15 @@ class CheckpointRepositoryImpl(CheckpointRepository):
         db_model.status = status_value
         db_model.location = checkpoint.location
         db_model.description = checkpoint.description
-        db_model.coordinates = checkpoint.coordinates
         db_model.timestamp = checkpoint.timestamp
         db_model.updated_at = datetime.utcnow()
         
         # Actualizar campos adicionales si existen
         if hasattr(db_model, 'meta_data') and hasattr(checkpoint, 'meta_data'):
             db_model.meta_data = checkpoint.meta_data
+        
+        if hasattr(db_model, 'coordinates') and hasattr(checkpoint, 'coordinates'):
+            db_model.coordinates = checkpoint.coordinates
             
         if hasattr(db_model, 'operator') and hasattr(checkpoint, 'operator'):
             db_model.operator = checkpoint.operator

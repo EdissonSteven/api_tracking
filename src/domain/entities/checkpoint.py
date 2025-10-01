@@ -56,6 +56,10 @@ class Checkpoint:
         # Inicializar meta_data como dict vacío si es None
         if self.meta_data is None:
             self.meta_data = {}
+        
+        # Inicializar coordinates como dict vacío si es None
+        if self.coordinates is None:
+            self.coordinates = {}
     
     @classmethod
     def create(
@@ -66,7 +70,8 @@ class Checkpoint:
         location: Optional[str] = None,
         description: Optional[str] = None,
         operator: Optional[str] = None,
-        meta_data: Optional[Dict[str, Any]] = None
+        meta_data: Optional[Dict[str, Any]] = None,
+        coordinates: Optional[Dict[str, Any]] = None
     ) -> 'Checkpoint':
         """
         Método factory para crear un nuevo checkpoint.
@@ -82,6 +87,7 @@ class Checkpoint:
             description: Notas adicionales
             operator: Operador que registra el checkpoint
             meta_data: Metadatos adicionales
+            coordinates: Coordenadas GPS
             
         Returns:
             Nueva instancia de Checkpoint
@@ -97,7 +103,8 @@ class Checkpoint:
             location=location,
             description=description,
             operator=operator,
-            meta_data=meta_data or {}
+            meta_data=meta_data or {},
+            coordinates=coordinates or {}
         )
     
     @staticmethod
@@ -231,6 +238,9 @@ class Checkpoint:
         # Asegurar que meta_data es un dict
         if checkpoint_data.get('meta_data') is None:
             checkpoint_data['meta_data'] = {}
+        
+        if checkpoint_data.get('coordinates') is None:
+            checkpoint_data['coordinates'] = {}
         
         return cls(**checkpoint_data)
     

@@ -1,7 +1,6 @@
 import logging.config
 import json
 import sys
-from typing import Dict, Any
 from datetime import datetime
 
 from .settings import get_settings

@@ -18,16 +18,12 @@ from ...domain.domain_events import (
 from ...domain.domain_exceptions import (
     DomainValidationError,
     BusinessRuleViolationError,
-    UnitNotFoundError,
-    IdempotencyViolationError,
-    ConcurrencyError
+    UnitNotFoundError
 )
 from ..result import (
     Result,
     Success,
-    Failure,
-    ResultBuilder,
-    AsyncResult
+    Failure
 )
 
 logger = logging.getLogger(__name__)
@@ -226,7 +222,8 @@ class CreateCheckpointUseCase:
                 location=request.location,
                 description=request.description,
                 operator=request.operator,
-                meta_data=request.meta_data
+                meta_data=request.meta_data,
+                coordinates=request.coordinates
             )
             
             if not checkpoint.is_valid():

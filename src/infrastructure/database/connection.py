@@ -6,12 +6,6 @@ from sqlalchemy.pool import StaticPool
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 
-# Import models to register them with SQLModel
-try:
-    from src.infrastructure.database.user_model import User
-except ImportError:
-    logging.warning("User model not found - will be created when available")
-
 try:
     from src.config.settings import get_settings
 except ImportError:

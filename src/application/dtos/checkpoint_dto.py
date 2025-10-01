@@ -18,6 +18,7 @@ class CreateCheckpointRequest:
     description: Optional[str] = None
     operator: Optional[str] = None
     meta_data: Optional[Dict[str, Any]] = None
+    coordinates: Optional[Dict[str, Any]] = None
     
     def __post_init__(self):
         """Validaciones básicas después de la inicialización."""
@@ -34,6 +35,10 @@ class CreateCheckpointRequest:
         # Inicializar meta_data si es None
         if self.meta_data is None:
             self.meta_data = {}
+        
+        # Inicializar coordinates si es None
+        if self.coordinates is None:
+            self.coordinates = {}
 
 
 @dataclass
@@ -52,6 +57,7 @@ class CheckpointResponse:
     description: Optional[str] = None
     operator: Optional[str] = None
     meta_data: Optional[Dict[str, Any]] = None
+    coordinates: Optional[Dict[str, Any]] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     
@@ -72,6 +78,9 @@ class CheckpointResponse:
         # Asegurar que meta_data es un dict
         if self.meta_data is None:
             self.meta_data = {}
+        
+        if self.coordinates is None:
+            self.coordinates = {}
         
         # Validar campos requeridos
         if not self.id:
@@ -115,6 +124,7 @@ class CheckpointResponse:
             description=checkpoint.description,
             operator=getattr(checkpoint, 'operator', None),
             meta_data=getattr(checkpoint, 'meta_data', None) or {},
+            coordinates=getattr(checkpoint, 'coordinates', None) or {},
             created_at=created_at or getattr(checkpoint, 'created_at', None) or datetime.utcnow(),
             updated_at=created_at or getattr(checkpoint, 'created_at', None) or datetime.utcnow()
         )
@@ -134,6 +144,7 @@ class CheckpointResponse:
             "location": self.location,
             "description": self.description,
             "operator": self.operator,
+            "coordinates": self.coordinates,
             "meta_data": self.meta_data,
             "created_at": self.created_at.isoformat() if self.created_at else None
         }

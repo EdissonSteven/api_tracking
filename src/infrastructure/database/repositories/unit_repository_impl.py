@@ -1,5 +1,5 @@
 from ....domain.value_objects.tracking_id import TrackingId
-from sqlmodel import Session, select, desc, func  # Session síncrona
+from sqlmodel import Session, select, func
 from typing import List, Optional
 import logging
 from datetime import datetime
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class UnitRepositoryImpl(UnitRepository):
     """Implementación del repositorio de Unit - SÍNCRONO."""
     
-    def __init__(self, session: Session):  # ⬅️ Session, no AsyncSession
+    def __init__(self, session: Session):
         self._session = session
     
     def create(self, unit: Unit) -> UnitModel:  

@@ -1,6 +1,5 @@
 import re
-from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, validator
+from typing import Any, Dict, Optional
 from fastapi import HTTPException, status
 import logging
 

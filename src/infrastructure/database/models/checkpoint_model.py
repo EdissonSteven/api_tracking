@@ -51,7 +51,7 @@ class CheckpointModel(SQLModel, table=True):
     
     coordinates: Optional[Dict[str, Any]] = Field(
         default=None,
-        sa_column=Column(JSON),
+        sa_column=Column("coordinates",JSON),
         description="Coordenadas GPS del checkpoint"
     )
     

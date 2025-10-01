@@ -5,7 +5,7 @@ Este patrón permite manejar errores de forma funcional y explícita,
 siguiendo principios de Clean Architecture y programación defensiva.
 """
 
-from typing import TypeVar, Generic, Union, Callable, Optional, Any
+from typing import TypeVar, Generic, Callable, Optional, Any
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
 

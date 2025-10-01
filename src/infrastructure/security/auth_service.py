@@ -4,7 +4,6 @@ import jwt
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 from passlib.context import CryptContext
-from passlib.hash import bcrypt
 import logging
 from pydantic import BaseModel
 

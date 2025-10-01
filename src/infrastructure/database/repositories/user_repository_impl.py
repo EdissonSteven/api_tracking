@@ -1,6 +1,6 @@
 from domain.entities.user import User
-from sqlmodel import Session, select, desc
-from typing import List, Optional
+from sqlmodel import Session, select
+from typing import Optional
 import logging
 from datetime import datetime
 from ..models.user_model import UserModel

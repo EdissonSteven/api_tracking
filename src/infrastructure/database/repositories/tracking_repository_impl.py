@@ -3,7 +3,6 @@ from typing import List, Optional, Dict, Any
 import logging
 from datetime import datetime
 
-from ....domain.entities.unit import Unit
 from ....domain.entities.checkpoint import Checkpoint
 from ....infrastructure.database.models.unit_model import UnitModel
 from ....infrastructure.database.models.checkpoint_model import CheckpointModel
@@ -208,8 +207,9 @@ class TrackingRepositoryImpl:
             raise
 
     def get_by_tracking_id(self, tracking_id: str) -> List[Checkpoint]:
+        tracking_id_str = getattr(tracking_id, 'value', str(tracking_id))
         redis = get_redis_client()
-        cache_key = f"tracking_by_id:{tracking_id}"
+        cache_key = f"tracking_by_id:{tracking_id_str}"
         if redis.is_available:
             cached = redis.get(cache_key)
             if cached:
@@ -220,7 +220,6 @@ class TrackingRepositoryImpl:
 
         try:
             print(f"🎯 get_by_tracking_id: {tracking_id}")
-            tracking_id_str = getattr(tracking_id, 'value', str(tracking_id))
             
             logger.debug(f"Buscando checkpoints para tracking_id: {tracking_id_str}")
             

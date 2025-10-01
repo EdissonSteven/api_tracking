@@ -94,89 +94,184 @@ VALUES
 ON CONFLICT (tracking_id) DO NOTHING;
 
 -- TRK001: En tránsito (2 checkpoints)
-INSERT INTO checkpoints (tracking_id, status, location, description, timestamp) 
+INSERT INTO checkpoints (tracking_id, status, location, description, operator, coordinates, meta_data, timestamp) 
 VALUES 
-    ('TRK001', 'picked_up', 'Centro de Distribución Bogotá', 'Paquete recogido y procesado', NOW() - INTERVAL '2 hours'),
-    ('TRK001', 'in_transit', 'Terminal de Transporte Bogotá', 'En ruta hacia Medellín', NOW() - INTERVAL '1 hour')
+    ('TRK001', 'picked_up', 'Centro de Distribución Bogotá', 'Paquete recogido y procesado', 
+     'María González',
+     '{"latitude": 4.7110, "longitude": -74.0721}'::jsonb, 
+     '{"operator_name": "María González", "warehouse": "BOG-CD-01", "weight_kg": 2.5}'::jsonb,
+     NOW() - INTERVAL '2 hours'),
+    
+    ('TRK001', 'in_transit', 'Terminal de Transporte Bogotá', 'En ruta hacia Medellín', 
+     'Carlos Rodríguez',
+     '{"latitude": 4.6097, "longitude": -74.0817}'::jsonb, 
+     '{"driver": "Carlos Rodríguez", "vehicle": "ABC123", "route": "BOG-MDE"}'::jsonb,
+     NOW() - INTERVAL '1 hour')
 ON CONFLICT (id) DO NOTHING;
 
 -- TRK002: Recién creado (1 checkpoint)
-INSERT INTO checkpoints (tracking_id, status, location, description, timestamp) 
+INSERT INTO checkpoints (tracking_id, status, location, description, operator, coordinates, meta_data, timestamp) 
 VALUES 
-    ('TRK002', 'created', 'Centro de Distribución Cali', 'Paquete registrado en el sistema', NOW() - INTERVAL '30 minutes')
+    ('TRK002', 'created', 'Centro de Distribución Cali', 'Paquete registrado en el sistema',
+     'Sistema Automático',
+     '{"latitude": 3.4516, "longitude": -76.5320}'::jsonb, 
+     '{"created_by": "system", "warehouse": "CALI-CD-02", "priority": "standard"}'::jsonb,
+     NOW() - INTERVAL '30 minutes')
 ON CONFLICT (id) DO NOTHING;
 
 -- TRK003: Entregado (3 checkpoints - ciclo completo)
-INSERT INTO checkpoints (tracking_id, status, location, description, timestamp) 
+INSERT INTO checkpoints (tracking_id, status, location, description, coordinates, meta_data, timestamp) 
 VALUES 
-    ('TRK003', 'picked_up', 'Centro de Distribución Medellín', 'Recolección exitosa', NOW() - INTERVAL '8 hours'),
-    ('TRK003', 'in_transit', 'Punto Intermedio Caucasia', 'En ruta hacia destino', NOW() - INTERVAL '5 hours'),
-    ('TRK003', 'delivered', 'Barranquilla - Dirección del cliente', 'Entregado y firmado por el cliente', NOW() - INTERVAL '1 hour')
+    ('TRK003', 'picked_up', 'Centro de Distribución Medellín', 'Recolección exitosa', 
+     '{"latitude": 6.2442, "longitude": -75.5812}'::jsonb, 
+     '{"operator_name": "Juan Pérez", "warehouse": "MDE-CD-01", "package_count": 1}'::jsonb,
+     NOW() - INTERVAL '8 hours'),
+    
+    ('TRK003', 'in_transit', 'Punto Intermedio Caucasia', 'En ruta hacia destino', 
+     '{"latitude": 7.9867, "longitude": -75.1931}'::jsonb, 
+     '{"driver": "Pedro Sánchez", "vehicle": "XYZ789", "fuel_level": "75%"}'::jsonb,
+     NOW() - INTERVAL '5 hours'),
+    
+    ('TRK003', 'delivered', 'Barranquilla - Dirección del cliente', 'Entregado y firmado por el cliente', 
+     '{"latitude": 10.9685, "longitude": -74.7813}'::jsonb, 
+     '{"driver": "Pedro Sánchez", "vehicle": "XYZ789", "signature": "signed", "recipient": "Ana Martínez"}'::jsonb,
+     NOW() - INTERVAL '1 hour')
 ON CONFLICT (id) DO NOTHING;
 
 -- TRK004: Listo para entrega (3 checkpoints)
-INSERT INTO checkpoints (tracking_id, status, location, description, timestamp) 
+INSERT INTO checkpoints (tracking_id, status, location, description, coordinates, meta_data, timestamp) 
 VALUES 
-    ('TRK004', 'picked_up', 'Bodega Principal Bogotá', 'Paquete ingresado al sistema', NOW() - INTERVAL '6 hours'),
-    ('TRK004', 'at_facility', 'Centro de Distribución Cali', 'Llegó a ciudad destino', NOW() - INTERVAL '3 hours'),
-    ('TRK004', 'out_for_delivery', 'Vehículo de Reparto Zona Sur', 'En ruta de entrega final', NOW() - INTERVAL '45 minutes')
+    ('TRK004', 'picked_up', 'Bodega Principal Bogotá', 'Paquete ingresado al sistema', 
+     '{"latitude": 4.6533, "longitude": -74.0836}'::jsonb, 
+     '{"operator_name": "Luis Hernández", "warehouse": "BOG-BPR-01", "temperature": "22°C"}'::jsonb,
+     NOW() - INTERVAL '6 hours'),
+    
+    ('TRK004', 'at_facility', 'Centro de Distribución Cali', 'Llegó a ciudad destino', 
+     '{"latitude": 3.4516, "longitude": -76.5320}'::jsonb, 
+     '{"warehouse": "CALI-CD-02", "arrival_time": "08:30", "storage_zone": "A-12"}'::jsonb,
+     NOW() - INTERVAL '3 hours'),
+    
+    ('TRK004', 'out_for_delivery', 'Vehículo de Reparto Zona Sur', 'En ruta de entrega final', 
+     '{"latitude": 3.3950, "longitude": -76.5390}'::jsonb, 
+     '{"driver": "Diego Torres", "vehicle": "DEF456", "stop_number": 5, "total_stops": 12}'::jsonb,
+     NOW() - INTERVAL '45 minutes')
 ON CONFLICT (id) DO NOTHING;
 
 -- TRK005: En bodega (2 checkpoints)
-INSERT INTO checkpoints (tracking_id, status, location, description, timestamp) 
+INSERT INTO checkpoints (tracking_id, status, location, description, coordinates, meta_data, timestamp) 
 VALUES 
-    ('TRK005', 'picked_up', 'Punto de Recolección Cartagena', 'Recogido de remitente', NOW() - INTERVAL '12 hours'),
-    ('TRK005', 'at_facility', 'Hub Central Bogotá', 'En proceso de clasificación', NOW() - INTERVAL '4 hours')
+    ('TRK005', 'picked_up', 'Punto de Recolección Cartagena', 'Recogido de remitente', 
+     '{"latitude": 10.3910, "longitude": -75.4794}'::jsonb, 
+     '{"operator_name": "Sandra López", "collection_point": "CTG-PC-03", "payment_method": "prepaid"}'::jsonb,
+     NOW() - INTERVAL '12 hours'),
+    
+    ('TRK005', 'at_facility', 'Hub Central Bogotá', 'En proceso de clasificación', 
+     '{"latitude": 4.7110, "longitude": -74.0721}'::jsonb, 
+     '{"warehouse": "BOG-HUB-01", "sorting_lane": "B-7", "next_scan": "dispatch"}'::jsonb,
+     NOW() - INTERVAL '4 hours')
 ON CONFLICT (id) DO NOTHING;
 
 -- TRK006: En tránsito (2 checkpoints)
-INSERT INTO checkpoints (tracking_id, status, location, description, timestamp) 
+INSERT INTO checkpoints (tracking_id, status, location, description, coordinates, meta_data, timestamp) 
 VALUES 
-    ('TRK006', 'picked_up', 'Terminal Barranquilla', 'Iniciando transporte', NOW() - INTERVAL '7 hours'),
-    ('TRK006', 'in_transit', 'Peaje Planeta Rica', 'Avance en ruta', NOW() - INTERVAL '3 hours 30 minutes')
+    ('TRK006', 'picked_up', 'Terminal Barranquilla', 'Iniciando transporte', 
+     '{"latitude": 10.9685, "longitude": -74.7813}'::jsonb, 
+     '{"operator_name": "Roberto Díaz", "terminal": "BAQ-TER-01", "cargo_weight": "150kg"}'::jsonb,
+     NOW() - INTERVAL '7 hours'),
+    
+    ('TRK006', 'in_transit', 'Peaje Planeta Rica', 'Avance en ruta', 
+     '{"latitude": 8.4128, "longitude": -75.5848}'::jsonb, 
+     '{"driver": "Andrés Ruiz", "vehicle": "GHI789", "toll_paid": true, "estimated_arrival": "3 hours"}'::jsonb,
+     NOW() - INTERVAL '3 hours 30 minutes')
 ON CONFLICT (id) DO NOTHING;
 
 -- TRK007: Recién recogido (1 checkpoint)
-INSERT INTO checkpoints (tracking_id, status, location, description, timestamp) 
+INSERT INTO checkpoints (tracking_id, status, location, description, coordinates, meta_data, timestamp) 
 VALUES 
-    ('TRK007', 'picked_up', 'Oficina Principal Cali', 'Paquete recogido del remitente', NOW() - INTERVAL '2 hours')
+    ('TRK007', 'picked_up', 'Oficina Principal Cali', 'Paquete recogido del remitente', 
+     '{"latitude": 3.4372, "longitude": -76.5225}'::jsonb, 
+     '{"operator_name": "Camila Vargas", "office": "CALI-OFF-01", "package_type": "document", "fragile": false}'::jsonb,
+     NOW() - INTERVAL '2 hours')
 ON CONFLICT (id) DO NOTHING;
 
 -- TRK008: Excepción/Problema (3 checkpoints)
-INSERT INTO checkpoints (tracking_id, status, location, description, timestamp) 
+INSERT INTO checkpoints (tracking_id, status, location, description, coordinates, meta_data, timestamp) 
 VALUES 
-    ('TRK008', 'picked_up', 'Centro de Acopio Bogotá Norte', 'Recolectado correctamente', NOW() - INTERVAL '10 hours'),
-    ('TRK008', 'in_transit', 'Ruta Nacional Tunja', 'En camino a Bucaramanga', NOW() - INTERVAL '6 hours'),
-    ('TRK008', 'exception', 'Centro de Distribución Bucaramanga', 'Dirección incorrecta - requiere validación', NOW() - INTERVAL '2 hours')
+    ('TRK008', 'picked_up', 'Centro de Acopio Bogotá Norte', 'Recolectado correctamente', 
+     '{"latitude": 4.7589, "longitude": -74.0540}'::jsonb, 
+     '{"operator_name": "Fernando Castro", "collection_center": "BOG-CA-NORTE", "condition": "good"}'::jsonb,
+     NOW() - INTERVAL '10 hours'),
+    
+    ('TRK008', 'in_transit', 'Ruta Nacional Tunja', 'En camino a Bucaramanga', 
+     '{"latitude": 5.5353, "longitude": -73.3678}'::jsonb, 
+     '{"driver": "Miguel Ángel Suárez", "vehicle": "JKL012", "weather": "clear", "speed": "80km/h"}'::jsonb,
+     NOW() - INTERVAL '6 hours'),
+    
+    ('TRK008', 'exception', 'Centro de Distribución Bucaramanga', 'Dirección incorrecta - requiere validación', 
+     '{"latitude": 7.1193, "longitude": -73.1227}'::jsonb, 
+     '{"warehouse": "BGA-CD-01", "exception_type": "address_error", "contact_attempted": true, "resolution_eta": "24h"}'::jsonb,
+     NOW() - INTERVAL '2 hours')
 ON CONFLICT (id) DO NOTHING;
 
 -- TRK009: Solo creado (1 checkpoint)
-INSERT INTO checkpoints (tracking_id, status, location, description, timestamp) 
+INSERT INTO checkpoints (tracking_id, status, location, description, coordinates, meta_data, timestamp) 
 VALUES 
-    ('TRK009', 'created', 'Sistema Central Medellín', 'Guía generada - esperando recolección', NOW() - INTERVAL '15 minutes')
+    ('TRK009', 'created', 'Sistema Central Medellín', 'Guía generada - esperando recolección', 
+     '{"latitude": 6.2442, "longitude": -75.5812}'::jsonb, 
+     '{"created_by": "web_portal", "customer_id": "CUST-9876", "payment_status": "pending", "service_type": "express"}'::jsonb,
+     NOW() - INTERVAL '15 minutes')
 ON CONFLICT (id) DO NOTHING;
 
 -- TRK010: En tránsito (2 checkpoints)
-INSERT INTO checkpoints (tracking_id, status, location, description, timestamp) 
+INSERT INTO checkpoints (tracking_id, status, location, description, coordinates, meta_data, timestamp) 
 VALUES 
-    ('TRK010', 'picked_up', 'Sucursal Pereira Centro', 'Paquete ingresado', NOW() - INTERVAL '5 hours'),
-    ('TRK010', 'in_transit', 'Terminal La Pola', 'Dirección a Bogotá', NOW() - INTERVAL '2 hours 15 minutes')
+    ('TRK010', 'picked_up', 'Sucursal Pereira Centro', 'Paquete ingresado', 
+     '{"latitude": 4.8133, "longitude": -75.6961}'::jsonb, 
+     '{"operator_name": "Juliana Ramírez", "branch": "PER-SUC-CENTRO", "dimensions": "30x20x15cm"}'::jsonb,
+     NOW() - INTERVAL '5 hours'),
+    
+    ('TRK010', 'in_transit', 'Terminal La Pola', 'Dirección a Bogotá', 
+     '{"latitude": 4.9500, "longitude": -75.2500}'::jsonb, 
+     '{"driver": "Héctor Morales", "vehicle": "MNO345", "cargo_type": "general", "temperature": "ambient"}'::jsonb,
+     NOW() - INTERVAL '2 hours 15 minutes')
 ON CONFLICT (id) DO NOTHING;
 
 -- TRK011: En bodega de destino (3 checkpoints)
-INSERT INTO checkpoints (tracking_id, status, location, description, timestamp) 
+INSERT INTO checkpoints (tracking_id, status, location, description, coordinates, meta_data, timestamp) 
 VALUES 
-    ('TRK011', 'picked_up', 'Punto de Origen Bucaramanga', 'Recolección completada', NOW() - INTERVAL '20 hours'),
-    ('TRK011', 'in_transit', 'Corredor Vial Santa Marta', 'Tránsito hacia costa', NOW() - INTERVAL '14 hours'),
-    ('TRK011', 'at_facility', 'Bodega Central Cartagena', 'Disponible para despacho', NOW() - INTERVAL '3 hours')
+    ('TRK011', 'picked_up', 'Punto de Origen Bucaramanga', 'Recolección completada', 
+     '{"latitude": 7.1193, "longitude": -73.1227}'::jsonb, 
+     '{"operator_name": "Patricia Mendoza", "pickup_point": "BGA-PO-01", "declared_value": "$500000"}'::jsonb,
+     NOW() - INTERVAL '20 hours'),
+    
+    ('TRK011', 'in_transit', 'Corredor Vial Santa Marta', 'Tránsito hacia costa', 
+     '{"latitude": 11.2404, "longitude": -74.2029}'::jsonb, 
+     '{"driver": "Ricardo Jiménez", "vehicle": "PQR678", "rest_stop": false, "traffic_status": "normal"}'::jsonb,
+     NOW() - INTERVAL '14 hours'),
+    
+    ('TRK011', 'at_facility', 'Bodega Central Cartagena', 'Disponible para despacho', 
+     '{"latitude": 10.3910, "longitude": -75.4794}'::jsonb, 
+     '{"warehouse": "CTG-BC-01", "dock": "D-3", "inspection_status": "approved", "next_delivery_window": "morning"}'::jsonb,
+     NOW() - INTERVAL '3 hours')
 ON CONFLICT (id) DO NOTHING;
 
 -- TRK012: Listo para entrega (3 checkpoints)
-INSERT INTO checkpoints (tracking_id, status, location, description, timestamp) 
+INSERT INTO checkpoints (tracking_id, status, location, description, coordinates, meta_data, timestamp) 
 VALUES 
-    ('TRK012', 'picked_up', 'Hub Cali Sur', 'Ingreso al sistema logístico', NOW() - INTERVAL '9 hours'),
-    ('TRK012', 'at_facility', 'Centro de Distribución Bogotá', 'Arribó a ciudad destino', NOW() - INTERVAL '4 hours 30 minutes'),
-    ('TRK012', 'out_for_delivery', 'Ruta de Entrega Norte', 'En vehículo hacia dirección final', NOW() - INTERVAL '1 hour 15 minutes')
+    ('TRK012', 'picked_up', 'Hub Cali Sur', 'Ingreso al sistema logístico', 
+     '{"latitude": 3.3820, "longitude": -76.5390}'::jsonb, 
+     '{"operator_name": "Daniela Ríos", "hub": "CALI-HUB-SUR", "scan_quality": "excellent", "barcode": "valid"}'::jsonb,
+     NOW() - INTERVAL '9 hours'),
+    
+    ('TRK012', 'at_facility', 'Centro de Distribución Bogotá', 'Arribó a ciudad destino', 
+     '{"latitude": 4.7110, "longitude": -74.0721}'::jsonb, 
+     '{"warehouse": "BOG-CD-01", "unload_time": "06:15", "storage_location": "C-22", "priority_flag": false}'::jsonb,
+     NOW() - INTERVAL '4 hours 30 minutes'),
+    
+    ('TRK012', 'out_for_delivery', 'Ruta de Entrega Norte', 'En vehículo hacia dirección final', 
+     '{"latitude": 4.7300, "longitude": -74.0500}'::jsonb, 
+     '{"driver": "Sebastián Ortiz", "vehicle": "STU901", "route_id": "BOG-N-12", "delivery_attempt": 1, "eta_minutes": 45}'::jsonb,
+     NOW() - INTERVAL '1 hour 15 minutes')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO users (username, email, hashed_password, full_name, is_active, is_superuser, roles, permissions) 

@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, HTTPException, status as http_status, Query
-from typing import List
 import logging
 
 from ..schemas.tracking_schemas import UnitsListResponse, UnitResponse

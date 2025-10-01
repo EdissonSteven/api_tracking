@@ -1,9 +1,5 @@
-"""
-Mappers para transformación entre DTOs y entidades de dominio.
-"""
-
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 from datetime import datetime
 import logging
 
@@ -45,7 +41,8 @@ class CheckpointRequestMapper:
                 location=api_request.location.strip() if api_request.location else None,
                 description=api_request.description.strip() if api_request.description else None,
                 operator=api_request.operator.strip() if api_request.operator else None,
-                meta_data=api_request.meta_data or {}
+                meta_data=api_request.meta_data or {},
+                coordinates=api_request.coordinates or {}
             )
         except Exception as e:
             logger.error(f"Error mapeando request de API a use case: {str(e)}")
@@ -65,6 +62,7 @@ class CheckpointRequestMapper:
                 location=api_request.location,
                 description=api_request.description,
                 operator=api_request.operator,
+                coordinates=api_request.coordinates,
                 meta_data=api_request.meta_data or {}
             )
         except Exception as e:
@@ -98,6 +96,7 @@ class CheckpointResponseMapper:
                 description=checkpoint.description,
                 operator=getattr(checkpoint, 'operator', None),
                 meta_data=getattr(checkpoint, 'meta_data', None) or {},
+                coordinates=getattr(checkpoint, 'coordinates', None),
                 created_at=checkpoint.created_at or datetime.utcnow(),
                 updated_at=checkpoint.updated_at or datetime.utcnow()
             )
@@ -124,6 +123,7 @@ class CheckpointResponseMapper:
                 description=use_case_response.description,
                 operator=use_case_response.operator,
                 meta_data=use_case_response.meta_data or {},
+                coordinates=use_case_response.coordinates or {},
                 created_at=use_case_response.created_at,
                 updated_at=getattr(use_case_response, 'updated_at', None) or datetime.utcnow()
             )

@@ -1,18 +1,7 @@
-﻿"""
-Controlador de Checkpoints siguiendo Clean Architecture, DDD y SOLID.
-
-Este controlador implementa:
-- Single Responsibility Principle: Solo orquesta, no contiene lógica de negocio
-- Open/Closed Principle: Extensible vía validators y mappers
-- Dependency Inversion: Todas las dependencias inyectadas
-- Clean Architecture: Separación clara de capas
-- Domain-Driven Design: Eventos de dominio y excepciones específicas
-"""
-
-import time
+﻿import time
 import logging
 from typing import Dict, Any, List
-from fastapi import APIRouter, Depends, HTTPException, status, Request, BackgroundTasks
+from fastapi import APIRouter, Depends, status, Request, BackgroundTasks
 from fastapi.responses import JSONResponse
 
 from ..schemas.checkpoint_schemas import CreateCheckpointRequest, CheckpointResponse
@@ -47,8 +36,7 @@ from .....domain.domain_exceptions import (
 from .....application.validators import ValidationService
 from .....application.mappers import (
     CheckpointRequestMapper,
-    CheckpointResponseMapper,
-    ErrorResponseMapper
+    CheckpointResponseMapper
 )
 
 router = APIRouter(prefix="/checkpoints", tags=["checkpoints"])
@@ -92,15 +80,6 @@ async def create_checkpoint(
     response_mapper: CheckpointResponseMapper = Depends(get_response_mapper),
     request_id: str = Depends(get_request_id)
 ) -> CheckpointResponse:
-    """
-    Create a new checkpoint with comprehensive validation and monitoring.
-    
-    This method follows Clean Architecture principles:
-    1. Input validation and transformation
-    2. Business logic execution via use case
-    3. Output transformation
-    4. Cross-cutting concerns (logging, events)
-    """
     
     try:
         # Log request initiation
@@ -114,7 +93,7 @@ async def create_checkpoint(
         
         # Step 1: Request Validation (Chain of Responsibility)
         validation_start = time.time()
-        validation_result = validator_service.validate_request(request, current_user)  # ⬅️ SIN await
+        validation_result = validator_service.validate_request(request, current_user)
         validation_duration = (time.time() - validation_start) * 1000
         
         if validation_result.is_failure():
@@ -143,7 +122,7 @@ async def create_checkpoint(
         
         # Step 3: Execute Business Logic (Dependency Inversion)
         business_logic_start = time.time()
-        use_case_result = use_case.execute(use_case_request)  # ⬅️ SIN await
+        use_case_result = use_case.execute(use_case_request)
         business_logic_duration = (time.time() - business_logic_start) * 1000
         
         # Step 4: Transform Response (Single Responsibility)
@@ -203,7 +182,7 @@ async def create_checkpoint(
         return _handle_unexpected_error(e, request_id)
 
 
-def _handle_validation_error(  # ⬅️ SIN async
+def _handle_validation_error(
     validation_errors: List[DomainValidationError],
     request_id: str,
     background_tasks: BackgroundTasks
@@ -236,7 +215,7 @@ def _handle_validation_error(  # ⬅️ SIN async
     )
 
 
-def _handle_domain_validation_error(  # ⬅️ SIN async
+def _handle_domain_validation_error(
     error: DomainValidationError,
     request_id: str
 ) -> JSONResponse:
@@ -261,7 +240,7 @@ def _handle_domain_validation_error(  # ⬅️ SIN async
     )
 
 
-def _handle_business_rule_error(  # ⬅️ SIN async
+def _handle_business_rule_error(
     error: BusinessRuleViolationError,
     request_id: str
 ) -> JSONResponse:
@@ -287,7 +266,7 @@ def _handle_business_rule_error(  # ⬅️ SIN async
     )
 
 
-def _handle_auth_error(  # ⬅️ SIN async
+def _handle_auth_error(
     error: Exception,
     request_id: str
 ) -> JSONResponse:
@@ -312,7 +291,7 @@ def _handle_auth_error(  # ⬅️ SIN async
     )
 
 
-def _handle_unexpected_error(  # ⬅️ SIN async
+def _handle_unexpected_error(
     error: Exception,
     request_id: str
 ) -> JSONResponse:
@@ -337,7 +316,7 @@ def _handle_unexpected_error(  # ⬅️ SIN async
     )
 
 
-def _dispatch_success_events(  # ⬅️ SIN async
+def _dispatch_success_events(
     response: CheckpointResponse,
     user: Dict[str, Any],
     event_dispatcher: DomainEventDispatcher,
@@ -363,7 +342,7 @@ def _dispatch_success_events(  # ⬅️ SIN async
     )
 
 
-def _dispatch_event_async(  # ⬅️ SIN async
+def _dispatch_event_async(
     event_dispatcher: DomainEventDispatcher, 
     event
 ):
@@ -374,7 +353,7 @@ def _dispatch_event_async(  # ⬅️ SIN async
         logger.error(f"Error dispatching event {event.event_name()}: {str(e)}")
 
 
-def _log_checkpoint_analytics(  # ⬅️ SIN async
+def _log_checkpoint_analytics(
     request_id: str,
     checkpoint_data: Dict[str, Any],
     user_data: Dict[str, Any],
@@ -405,7 +384,7 @@ def _log_checkpoint_analytics(  # ⬅️ SIN async
     analytics_logger.info(f"Checkpoint analytics: {analytics_data}")
 
 
-def _track_validation_failure(  # ⬅️ SIN async
+def _track_validation_failure(
     validation_errors: List[Dict[str, Any]],
     request_id: str
 ):
